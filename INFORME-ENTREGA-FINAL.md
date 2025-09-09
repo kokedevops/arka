@@ -95,16 +95,27 @@ El proyecto demuestra la implementación completa de todos los requisitos solici
 - **📂 Ubicación**: `api-gateway/src/main/java/com/arka/gateway/security/`
 - **⚡ Endpoint**: `/auth/refresh` - Renovación de tokens
 
-### 🌐 **6. DEMOSTRACIONES PRÁCTICAS**
+### � **DEMOSTRACIONES PRÁCTICAS**
 
-#### 🔄 **Cambio de Fuente de Datos**
-- **📂 Ubicación**: `CAMBIO-FUENTE-DATOS-DEMO.md`
+#### 🐧 **Guía de Levantamiento Manual Linux**
+- **📂 Ubicación**: `GUIA-LEVANTAMIENTO-MANUAL-LINUX.md`
+- **🎯 Objetivo**: Levantar cada servicio paso a paso para testing
+- **� Incluye**:
+  - Setup completo de prerequisitos en Ubuntu/Debian
+  - Levantamiento de bases de datos (MySQL, MongoDB, Redis)
+  - Inicio manual de cada microservicio con configuración
+  - Scripts de verificación y testing funcional
+  - Pruebas de autenticación, cotizaciones y solicitudes
+  - Comandos de referencia rápida
+
+#### �🔄 **Cambio de Fuente de Datos**
+- **📂 Ubicación**: Implementación práctica en cada microservicio
 - **🎯 Demostración**: MySQL → API Terceros sin afectar dominio
-- **📋 API Terceros**: 
-  - `GET /ObtenerDatos/{tabla}`
-  - `GET /ObtenerDatos/{tabla}/{id}`
-  - `POST /GuardarDatos/{tabla}`
-  - `DELETE /BorrarDatos/{tabla}/{id}`
+- **📋 API Terceros documentada**:
+  - `GET /ObtenerDatos/{tabla}` - Obtener todos los registros
+  - `GET /ObtenerDatos/{tabla}/{id}` - Obtener por ID
+  - `POST /GuardarDatos/{tabla}` - Crear nuevo registro
+  - `DELETE /BorrarDatos/{tabla}/{id}` - Eliminar registro
 
 ### ☁️ **7. CLOUD SERVICES (AWS)**
 
@@ -201,6 +212,7 @@ arkavalenzuela-2/
 ├── 🚀 CICD-PIPELINES.md
 ├── 🏗️ IAC-PIPELINE.md
 ├── 📊 OBSERVABILIDAD-ESTRATEGIA.md
+├── 🐧 GUIA-LEVANTAMIENTO-MANUAL-LINUX.md
 ├── api-gateway/              ← Microservicio Gateway
 ├── eureka-server/            ← Service Discovery
 ├── config-server/            ← Configuración centralizada
@@ -334,13 +346,14 @@ curl http://localhost:8080/api/health
 - **Prometheus**: http://localhost:9090
 
 ### 📊 **Métricas del Proyecto**
-- **📄 Documentación**: 13 archivos MD completos
-- **🏗️ Líneas de código**: ~15,000+ (configuraciones)
+- **📄 Documentación**: 14 archivos MD completos
+- **🏗️ Líneas de código**: ~20,000+ (configuraciones + scripts)
 - **🐳 Microservicios**: 6 servicios completamente documentados
 - **☁️ Servicios AWS**: 10+ servicios configurados
 - **🧪 Tests automatizados**: 50+ escenarios documentados
 - **📊 Dashboards**: 10+ dashboards de monitoreo
 - **🚨 Alertas**: 25+ reglas de alerting
+- **🐧 Scripts Linux**: 15+ scripts de automatización
 - **📋 Cobertura requisitos**: 100% de los criterios académicos
 
 ---
