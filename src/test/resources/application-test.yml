@@ -1,0 +1,70 @@
+# Test Configuration for ARKA Services
+# Configuración específica para pruebas unitarias e integración
+
+# Base de datos H2 en memoria para tests
+spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+spring.datasource.driver-class-name=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=
+
+# JPA Configuration for Tests
+spring.jpa.hibernate.ddl-auto=create-drop
+spring.jpa.show-sql=false
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect
+spring.jpa.defer-datasource-initialization=true
+
+# H2 Console para debugging
+spring.h2.console.enabled=true
+spring.h2.console.path=/h2-console
+
+# Profile activo para tests
+spring.profiles.active=test
+
+# Logging para debugging
+logging.level.org.springframework.web=INFO
+logging.level.org.springframework.security=DEBUG
+logging.level.com.arka=DEBUG
+
+# Desactivar servicios cloud en tests
+spring.cloud.config.enabled=false
+eureka.client.enabled=false
+spring.cloud.discovery.enabled=false
+
+# MongoDB para tests (usar testcontainers o embedded)
+spring.data.mongodb.uri=mongodb://localhost:27017/test_arka
+spring.data.mongodb.auto-index-creation=true
+
+# JWT Configuration para tests
+jwt.secret=dGVzdF9zZWNyZXRfa2V5X2Zvcl9hcmthX3Rlc3RzX3ZlcnlfbG9uZ19zdHJpbmdfZm9yX3Rlc3Rpbmc=
+jwt.expiration=3600000
+jwt.refresh-expiration=86400000
+
+# Security Configuration para tests
+security.jwt.enabled=true
+security.cors.enabled=true
+security.cors.allowed-origins=http://localhost:3000,http://localhost:4200
+security.rate-limiting.enabled=false
+
+# AWS Mock Configuration
+aws.region=us-east-1
+aws.s3.bucket-name=test-bucket
+aws.sns.enabled=false
+aws.dynamodb.enabled=false
+
+# Email Configuration para tests (desactivado)
+spring.mail.enabled=false
+arka.mail.enabled=false
+
+# Test specific configurations
+test.jwt.valid-token-duration=PT1H
+test.jwt.expired-token-duration=PT-1S
+test.security.enable-csrf=false
+test.security.enable-cors=true
+
+# Reactive Configuration
+spring.webflux.base-path=/api
+
+# Multistore Configuration
+spring.data.mongodb.repositories.enabled=true
+spring.data.jpa.repositories.enabled=true
+spring.data.r2dbc.repositories.enabled=false
