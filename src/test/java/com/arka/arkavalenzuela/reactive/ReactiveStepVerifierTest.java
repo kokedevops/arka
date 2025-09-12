@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.math.BigDecimal;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -226,14 +227,21 @@ class ReactiveStepVerifierTest {
 
     @Test
     void testRetryMechanism() {
-        // Given
-        when(solicitudService.obtenerPorId(1L))
-            .thenReturn(Mono.error(new RuntimeException("Fallo temporal")))
-            .thenReturn(Mono.error(new RuntimeException("Segundo fallo")))
-            .thenReturn(Mono.just(solicitudTest));
+        // Given - Create a service that fails first 2 times then succeeds
+        AtomicInteger callCount = new AtomicInteger(0);
+        
+        // Create a Mono that simulates the retry behavior
+        Mono<Solicitud> retryMono = Mono.defer(() -> {
+            int count = callCount.incrementAndGet();
+            if (count <= 2) {
+                return Mono.error(new RuntimeException("Fallo temporal " + count));
+            } else {
+                return Mono.just(solicitudTest);
+            }
+        }).retry(2);
 
         // When & Then
-        StepVerifier.create(solicitudService.obtenerPorId(1L).retry(2))
+        StepVerifier.create(retryMono)
             .expectNext(solicitudTest)
             .verifyComplete();
     }
