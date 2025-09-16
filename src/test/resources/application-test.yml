@@ -1,0 +1,108 @@
+# Test Configuration for ARKA Services
+# Configuración específica para pruebas unitarias e integración
+
+spring:
+  # Base de datos H2 en memoria para tests
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  # JPA Configuration for Tests
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+    defer-datasource-initialization: true
+
+  # H2 Console para debugging
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  # Desactivar servicios cloud en tests
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+
+  # MongoDB para tests (usar testcontainers o embedded)
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/test_arka
+      auto-index-creation: true
+
+  # Email Configuration para tests (desactivado)
+  mail:
+    enabled: false
+
+  # Reactive Configuration
+  webflux:
+    base-path: /api
+
+# Logging para debugging
+logging:
+  level:
+    org:
+      springframework:
+        web: INFO
+        security: DEBUG
+    com:
+      arka: DEBUG
+
+# Eureka disable para tests
+eureka:
+  client:
+    enabled: false
+
+# JWT Configuration para tests
+jwt:
+  secret: dGVzdF9zZWNyZXRfa2V5X2Zvcl9hcmthX3Rlc3RzX3ZlcnlfbG9uZ19zdHJpbmdfZm9yX3Rlc3Rpbmc=
+  expiration: 3600000
+  refresh-expiration: 86400000
+
+# Security Configuration para tests
+security:
+  jwt:
+    enabled: true
+  cors:
+    enabled: true
+    allowed-origins: 
+      - http://localhost:3000
+      - http://localhost:4200
+  rate-limiting:
+    enabled: false
+
+# AWS Mock Configuration
+aws:
+  region: us-east-1
+  s3:
+    bucket-name: test-bucket
+  sns:
+    enabled: false
+  dynamodb:
+    enabled: false
+
+# ARKA specific configuration
+arka:
+  mail:
+    enabled: false
+  jwt:
+    secret: arkaSecretKeyForJWTGenerationThatMustBeLongEnoughForHS512Algorithm2025
+    expiration: 86400000
+    refresh-expiration: 604800000
+
+# Test specific configurations
+test:
+  jwt:
+    valid-token-duration: PT1H
+    expired-token-duration: PT-1S
+  security:
+    enable-csrf: false
+    enable-cors: true

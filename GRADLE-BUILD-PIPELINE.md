@@ -1,413 +1,359 @@
-# 🚀 GRADLE BUILD PIPELINE CON MÚLTIPLES STAGES
+# 🚀 GRADLE BUILD PIPELINE CON RUNMAIN
 
-## 🎯 **CONFIGURACIÓN IMPLEMENTADA**
+## 🎯 **OVERVIEW**
 
-He configurado un **pipeline de build completo** con múltiples stages organizados y un task principal `runMain` que ejecuta todo el proceso de construcción.
-
----
-
-## 🏗️ **ARQUITECTURA DEL PIPELINE**
-
-### 📋 **8 Stages Configurados:**
-
-```mermaid
-graph LR
-    A[🧹 Clean] --> B[🔍 Quality]
-    B --> C[🧪 Testing]
-    C --> D[🔧 Compile]
-    D --> E[📦 Package]
-    E --> F[🔍 Verify]
-    F --> G[🚀 Deploy Prep]
-    G --> H[📊 SonarQube]
-```
-
-### 🎯 **Stage Details:**
-
-1. **🧹 Clean Stage** - Limpieza de artifacts
-2. **🔍 Code Quality** - Análisis estático
-3. **🧪 Testing** - Tests + Cobertura
-4. **🔧 Compilation** - Compilación completa
-5. **📦 Packaging** - Creación de JARs
-6. **🔍 Quality Verification** - Verificación umbrales
-7. **🚀 Deployment Prep** - Preparación deploy
-8. **📊 SonarQube** - Análisis opcional
+He configurado un **pipeline completo** de build con el task `runMain` que ejecuta **8 stages secuenciales** para un proceso de construcción profesional.
 
 ---
 
-## 🚀 **COMANDOS PRINCIPALES**
+## 🔧 **COMANDOS PRINCIPALES**
 
-### 🎯 **Pipeline Completo:**
+### 🚀 **Pipeline Completo:**
 ```bash
-# Ejecutar pipeline completo con todos los stages
+# Ejecutar pipeline completo (8 stages)
 ./gradlew runMain
 
-# Pipeline completo con SonarQube
-./gradlew runMain -PrunSonar=true
+# Ver todos los tasks disponibles
+./gradlew tasks --group=application
+./gradlew tasks --group=pipeline
 ```
 
-### ⚡ **Pipelines Específicos:**
+### ⚡ **Pipelines Especializados:**
 ```bash
-# Build rápido (sin SonarQube)
-./gradlew quickBuild
-
 # Solo testing y cobertura
-./gradlew testOnly
+./gradlew runTests
 
-# Build sin tests (desarrollo rápido)
-./gradlew buildNoTest
+# Análisis completo con SonarQube
+./gradlew runQuality
 
-# Solo verificación de calidad
-./gradlew qualityCheck
+# Build rápido sin tests
+./gradlew runFast
 
-# Solo reporte de cobertura
-./gradlew coverageReport
+# Solo generar reportes
+./gradlew runReports
 ```
 
-### 🔧 **Stages Individuales:**
+---
+
+## 📋 **8 STAGES DEL PIPELINE PRINCIPAL**
+
+### 🧹 **Stage 1: Limpieza**
 ```bash
-# Ejecutar stage específico
-./gradlew cleanStage
-./gradlew codeQualityStage
-./gradlew testingStage
-./gradlew compilationStage
-./gradlew packagingStage
-./gradlew qualityVerificationStage
-./gradlew deploymentPrepStage
-./gradlew sonarAnalysisStage
+./gradlew stageClean
 ```
+- ✅ Limpia artefactos anteriores
+- ✅ Prepara workspace limpio
+- ✅ Elimina builds previos
 
----
-
-## 📊 **OUTPUT DEL PIPELINE**
-
-### 🚀 **Inicio del Pipeline:**
+### 🔧 **Stage 2: Compilación**
+```bash
+./gradlew stageCompile
 ```
-🚀 =============================================
-🏗️           ARKA VALENZUELA BUILD PIPELINE
-🚀 =============================================
-
-📋 Pipeline Stages:
-   1. 🧹 Cleaning
-   2. 🔍 Code Quality Analysis  
-   3. 🧪 Testing & Coverage
-   4. 🔧 Compilation
-   5. 📦 Packaging
-   6. 🔍 Quality Verification
-   7. 🚀 Deployment Preparation
-   8. 📊 SonarQube Analysis (optional)
-
-🎯 Starting complete build pipeline...
-```
-
-### ✅ **Finalización Exitosa:**
-```
-🎉 =============================================
-🏆           BUILD PIPELINE COMPLETED
-🎉 =============================================
-
-✅ All stages completed successfully!
-
-📊 Build Summary:
-   🧹 Cleaned: All artifacts removed
-   🔍 Quality: Code analysis passed
-   🧪 Tests: All tests passed with coverage
-   🔧 Compiled: All modules compiled
-   📦 Packaged: JAR files created
-   🔍 Verified: Quality gates met
-   🚀 Ready: Deployment artifacts prepared
-
-📂 Generated Artifacts:
-   📦 JAR files: build/libs/
-   📊 Test reports: build/reports/tests/
-   📈 Coverage: build/reports/jacoco/
-   📋 Build logs: Available in console
-
-🚀 Next Steps:
-   🐳 Docker: ./gradlew dockerBuild
-   ☁️  Deploy: ./gradlew deploy
-   📊 SonarQube: ./gradlew runMain -PrunSonar=true
-```
-
----
-
-## 🏗️ **DETALLES DE CADA STAGE**
-
-### 🧹 **Stage 1: Cleaning**
-```gradle
-task cleanStage {
-    // Limpia todos los build artifacts
-    // Remueve cache files
-    // Prepara ambiente limpio
-}
-```
-**Incluye:**
-- Clean del proyecto principal
-- Clean de todos los submódulos
-- Limpieza de cache
-
-### 🔍 **Stage 2: Code Quality Analysis**
-```gradle
-task codeQualityStage {
-    // Análisis estático de código
-    // Verificación de estilo
-    // Detección de code smells
-}
-```
-**Preparado para:**
-- Checkstyle
-- PMD
-- SpotBugs
-- SonarQube local
+- ✅ Compila código fuente Java 21
+- ✅ Procesa recursos
+- ✅ Valida sintaxis
 
 ### 🧪 **Stage 3: Testing**
-```gradle
-task testingStage {
-    // Tests unitarios
-    // Tests de integración
-    // Generación de cobertura
-}
+```bash
+./gradlew stageTesting
 ```
-**Ejecuta:**
-- Tests del proyecto principal
-- Tests de todos los submódulos
-- JaCoCo coverage reports
-- Reporte agregado
+- ✅ Tests unitarios (JUnit 5)
+- ✅ Tests de integración
+- ✅ Tests de seguridad
+- ✅ Tests reactivos
 
-### 🔧 **Stage 4: Compilation**
-```gradle
-task compilationStage {
-    // Compilación de código fuente
-    // Compilación de tests
-    // Verificación de sintaxis
-}
+### 📊 **Stage 4: Cobertura**
+```bash
+./gradlew stageCoverage
 ```
-**Compila:**
-- Main classes
-- Test classes
-- Todos los submódulos
+- ✅ Análisis JaCoCo
+- ✅ Reportes HTML/XML
+- ✅ Reporte agregado multi-módulo
 
-### 📦 **Stage 5: Packaging**
-```gradle
-task packagingStage {
-    // Creación de JAR files
-    // Empaquetado de recursos
-    // Preparación artifacts
-}
+### 🔍 **Stage 5: Calidad**
+```bash
+./gradlew stageQuality
 ```
-**Genera:**
-- JAR ejecutables
-- WAR files
-- Recursos empaquetados
+- ✅ Verificación umbrales (60% mínimo)
+- ✅ Validación métricas
+- ✅ Gates de calidad
 
-### 🔍 **Stage 6: Quality Verification**
-```gradle
-task qualityVerificationStage {
-    // Verificación umbrales cobertura
-    // Quality gates
-    // Validación métricas
-}
+### 📦 **Stage 6: Empaquetado**
+```bash
+./gradlew stagePackage
 ```
-**Verifica:**
-- Cobertura mínima (60%)
-- Quality gates
-- Métricas de calidad
+- ✅ Genera JAR ejecutable
+- ✅ Crea WAR para despliegue
+- ✅ Empaqueta dependencias
 
-### 🚀 **Stage 7: Deployment Preparation**
-```gradle
-task deploymentPrepStage {
-    // Validación Docker files
-    // Preparación artifacts cloud
-    // Verificación configuraciones
-}
+### 🐳 **Stage 7: Docker**
+```bash
+./gradlew stageDocker
 ```
-**Prepara:**
-- Docker configurations
-- Cloud deployment artifacts
-- Environment configs
+- ✅ Prepara para containerización
+- ✅ Valida Dockerfiles
+- ✅ Lista para `docker-compose build`
 
-### 📊 **Stage 8: SonarQube Analysis**
-```gradle
-task sonarAnalysisStage {
-    // Análisis SonarQube
-    // Envío métricas
-    // Technical debt analysis
-}
+### 📋 **Stage 8: Reporte Final**
+```bash
+./gradlew stageFinalReport
 ```
-**Opcional:**
-- Uso: `-PrunSonar=true`
-- Métricas a SonarQube
-- Quality gates remotos
+- ✅ Resumen completo
+- ✅ Ubicaciones de artefactos
+- ✅ Próximos pasos sugeridos
 
 ---
 
-## 🛠️ **TASKS UTILITARIOS**
+## 🎯 **SALIDA DEL PIPELINE**
 
-### ⚡ **Quick Build:**
-```bash
-./gradlew quickBuild
+### 📊 **Durante la Ejecución:**
 ```
-- Sin SonarQube
-- Para desarrollo rápido
-- Todas las verificaciones esenciales
+🚀 ====================================================
+    INICIANDO PIPELINE PRINCIPAL ARKA VALENZUELA
+🚀 ====================================================
 
-### 🧪 **Test Only:**
-```bash
-./gradlew testOnly
-```
-- Solo tests y cobertura
-- Verificación rápida
-- Sin compilación completa
+🧹 ==================== STAGE 1 ====================
+    LIMPIEZA DE ARTEFACTOS
+🧹 ===================================================
+✅ Stage 1 Completado: Limpieza exitosa
 
-### 📦 **Build No Test:**
-```bash
-./gradlew buildNoTest
-```
-- ⚠️ Solo para desarrollo
-- Sin ejecutar tests
-- Build rápido
+🔧 ==================== STAGE 2 ====================
+    COMPILACIÓN DEL CÓDIGO FUENTE
+🔧 ===================================================
+✅ Stage 2 Completado: Compilación exitosa
 
-### 🔍 **Quality Check:**
-```bash
-./gradlew qualityCheck
-```
-- Solo verificaciones calidad
-- Sin build completo
-- Métricas y umbrales
-
-### 📊 **Coverage Report:**
-```bash
-./gradlew coverageReport
-```
-- Solo reportes cobertura
-- JaCoCo aggregated
-- HTML + XML reports
-
----
-
-## 🎯 **CONFIGURACIÓN AVANZADA**
-
-### 🔧 **Variables de Entorno:**
-```bash
-# Habilitar SonarQube
-export SONAR_ENABLED=true
-
-# Cambiar umbral cobertura
-export COVERAGE_THRESHOLD=70
-
-# Skip tests específicos
-export SKIP_INTEGRATION_TESTS=true
+... (continúa con todos los stages) ...
 ```
 
-### 📊 **Propiedades Gradle:**
-```bash
-# Ejecutar con SonarQube
-./gradlew runMain -PrunSonar=true
-
-# Cambiar nivel logging
-./gradlew runMain --info
-
-# Parallel execution
-./gradlew runMain --parallel
+### 🎉 **Reporte Final:**
 ```
+🎉 ====================================================
+    PIPELINE COMPLETADO EXITOSAMENTE
+🎉 ====================================================
 
-### 🐳 **Integración Docker:**
-```bash
-# Build + Docker
-./gradlew runMain dockerBuild
+📊 RESUMEN DE ARTEFACTOS GENERADOS:
+   • JAR Principal: build/libs/arkavalenzuela-2-0.0.1-SNAPSHOT.jar
+   • Reportes de Tests: build/reports/tests/test/index.html
+   • Cobertura HTML: build/reports/jacoco/aggregate/html/index.html
+   • Cobertura XML: build/reports/jacoco/aggregate/jacocoTestReport.xml
 
-# Complete pipeline + Deploy
-./gradlew runMain deploy
+🚀 PRÓXIMOS PASOS:
+   • Revisar reportes de cobertura
+   • Ejecutar SonarQube: ./gradlew sonarqube
+   • Desplegar con Docker: docker-compose up
+
+✅ BUILD EXITOSO - TODOS LOS STAGES COMPLETADOS
 ```
 
 ---
 
-## 📂 **ARTIFACTS GENERADOS**
+## 📂 **ARTEFACTOS GENERADOS**
 
-### 📦 **Build Artifacts:**
+### 📦 **Ejecutables:**
 ```
-build/
-├── libs/
-│   ├── arkavalenzuela-0.0.1-SNAPSHOT.jar
-│   └── arkavalenzuela-0.0.1-SNAPSHOT.war
-├── reports/
-│   ├── tests/test/html/index.html
-│   ├── jacoco/aggregate/html/index.html
-│   └── jacoco/aggregate/jacocoTestReport.xml
-└── distributions/
-    └── arkavalenzuela-0.0.1-SNAPSHOT.tar
+build/libs/
+├── arkavalenzuela-2-0.0.1-SNAPSHOT.jar     # JAR principal
+├── arkavalenzuela-2-0.0.1-SNAPSHOT.war     # WAR para deploy
+└── arkavalenzuela-2-0.0.1-SNAPSHOT-plain.jar  # JAR sin dependencias
 ```
 
-### 🏢 **Submódulos:**
+### 📊 **Reportes:**
 ```
-api-gateway/build/libs/api-gateway.jar
-eureka-server/build/libs/eureka-server.jar
-config-server/build/libs/config-server.jar
-arca-cotizador/build/libs/arca-cotizador.jar
-arca-gestor-solicitudes/build/libs/arca-gestor-solicitudes.jar
-hello-world-service/build/libs/hello-world-service.jar
+build/reports/
+├── tests/test/index.html                    # Resultados tests
+├── jacoco/
+│   ├── test/html/index.html                # Cobertura módulo
+│   ├── aggregate/html/index.html           # Cobertura agregada
+│   └── aggregate/jacocoTestReport.xml      # XML para SonarQube
+└── build/
+    └── distributions/                      # Distribuciones
 ```
 
 ---
 
-## 🔄 **INTEGRACIÓN CI/CD**
+## 🔄 **FLUJO DE DEPENDENCIAS**
 
-### 🚀 **GitHub Actions Example:**
-```yaml
-name: Build Pipeline
-on: [push, pull_request]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
-        with:
-          java-version: '21'
-      
-      - name: Run Complete Pipeline
-        run: ./gradlew runMain -PrunSonar=true
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      
-      - name: Upload Coverage Reports
-        uses: actions/upload-artifact@v3
-        with:
-          name: coverage-reports
-          path: build/reports/jacoco/
-```
-
-### 🐳 **Docker Integration:**
-```bash
-# Pipeline + Docker build
-./gradlew runMain && docker-compose build
-
-# Complete deployment
-./gradlew runMain && docker-compose up -d
+```mermaid
+graph TB
+    subgraph "🚀 GRADLE PIPELINE STAGES"
+        Start["🚀 runMain"]
+        Clean["🧹 stageClean<br/>Limpieza"]
+        Compile["🔧 stageCompile<br/>Compilación"]
+        Test["🧪 stageTesting<br/>Testing"]
+        Coverage["📊 stageCoverage<br/>Cobertura"]
+        Quality["🔍 stageQuality<br/>Calidad"]
+        Package["📦 stagePackage<br/>Empaquetado"]
+        Docker["🐳 stageDocker<br/>Preparación Docker"]
+        Report["📋 stageFinalReport<br/>Reporte Final"]
+    end
+    
+    Start --> Report
+    Report --> Docker
+    Docker --> Package
+    Package --> Quality
+    Quality --> Coverage
+    Coverage --> Test
+    Test --> Compile
+    Compile --> Clean
+    
+    subgraph "⚡ TASKS AUXILIARES"
+        FastBuild["⚡ runFast<br/>Build Rápido"]
+        TestOnly["🧪 runTests<br/>Solo Tests"]
+        QualityOnly["🔍 runQuality<br/>+ SonarQube"]
+        ReportsOnly["📊 runReports<br/>Solo Reportes"]
+    end
+    
+    FastBuild --> Compile
+    TestOnly --> Coverage
+    QualityOnly --> Quality
+    ReportsOnly --> Coverage
 ```
 
 ---
 
-## 🎯 **BENEFICIOS IMPLEMENTADOS**
+## 🎯 **CASOS DE USO**
 
 ### 👨‍💻 **Para Desarrolladores:**
-- ✅ **Pipeline visual** con progress claro
-- ✅ **Tasks granulares** para testing específico
-- ✅ **Feedback inmediato** en cada stage
-- ✅ **Builds rápidos** para desarrollo
 
-### 🏢 **Para CI/CD:**
-- ✅ **Stages organizados** y secuenciales
-- ✅ **Artifacts controlados** y consistentes
-- ✅ **Quality gates** automáticos
-- ✅ **Reportes completos** para análisis
+```bash
+# Desarrollo diario - build rápido
+./gradlew runFast
 
-### 🔍 **Para Calidad:**
-- ✅ **Cobertura verificada** (60% mínimo)
-- ✅ **Análisis estático** integrado
-- ✅ **SonarQube opcional** pero configurado
-- ✅ **Métricas centralizadas**
+# Antes de commit - con tests
+./gradlew runTests
+
+# Revisión de cobertura
+./gradlew runReports
+```
+
+### 🔄 **Para CI/CD:**
+
+```bash
+# Pipeline completo en CI
+./gradlew runMain
+
+# Con análisis de calidad
+./gradlew runQuality
+```
+
+### 🚀 **Para Releases:**
+
+```bash
+# Build completo + preparación Docker
+./gradlew runMain
+
+# Después construir imágenes
+docker-compose build
+```
 
 ---
 
-*🚀 **Pipeline de build completo configurado con 8 stages organizados y task runMain principal***
+## ⚙️ **CONFIGURACIÓN AVANZADA**
+
+### 🎯 **Personalizar Umbrales:**
+```gradle
+// En build.gradle
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.70  // Cambiar a 70%
+            }
+        }
+    }
+}
+```
+
+### 🚫 **Agregar Exclusiones:**
+```gradle
+// Excluir más patrones
+exclude: [
+    '**/config/**',
+    '**/dto/**',
+    '**/*Application*',
+    '**/Vulnerable*',
+    '**/CodeSmells*',
+    '**/custom-pattern/**'  // Tu patrón personalizado
+]
+```
+
+### 🔍 **Integrar con IDEs:**
+
+**IntelliJ IDEA:**
+- Gradle tab → application → runMain
+- O usar terminal integrado: `./gradlew runMain`
+
+**VS Code:**
+- Command Palette → "Tasks: Run Task" → "gradle: runMain"
+- O terminal integrado
+
+---
+
+## 📊 **MÉTRICAS Y MONITOREO**
+
+### ⏱️ **Tiempos Esperados:**
+- **Stage 1-2**: ~30 segundos
+- **Stage 3**: ~2-5 minutos (según tests)
+- **Stage 4-5**: ~1 minuto
+- **Stage 6-8**: ~30 segundos
+- **Total**: ~5-8 minutos
+
+### 📈 **Métricas de Calidad:**
+- **Cobertura**: ≥60% (configurable)
+- **Tests**: Todos deben pasar
+- **Compilación**: Sin warnings críticos
+- **Artefactos**: JAR/WAR válidos
+
+---
+
+## 🚨 **TROUBLESHOOTING**
+
+### ❌ **Si falla Stage 3 (Tests):**
+```bash
+# Ver detalles del error
+./gradlew test --info
+
+# Ejecutar test específico
+./gradlew test --tests "NombreDelTest"
+```
+
+### ❌ **Si falla Stage 5 (Cobertura):**
+```bash
+# Ver reporte de cobertura
+open build/reports/jacoco/aggregate/html/index.html
+
+# Bajar umbral temporalmente
+# (editar build.gradle minimum = 0.40)
+```
+
+### ❌ **Si falla Stage 6 (Build):**
+```bash
+# Limpiar y reintentar
+./gradlew clean build --refresh-dependencies
+```
+
+---
+
+## 🎉 **BENEFICIOS IMPLEMENTADOS**
+
+### ✅ **Para el Proyecto:**
+- **Pipeline estructurado** con stages claros
+- **Feedback visual** en cada etapa
+- **Artefactos organizados** y localizables
+- **Flexibilidad** con tasks auxiliares
+
+### ✅ **Para Desarrolladores:**
+- **Comandos simples** (`runMain`, `runFast`, etc.)
+- **Feedback inmediato** de progreso
+- **Informes detallados** de ubicación de archivos
+- **Debugging fácil** por stages
+
+### ✅ **Para CI/CD:**
+- **Pipeline reproducible**
+- **Stages independientes** verificables
+- **Integración** con SonarQube lista
+- **Artefactos** listos para despliegue
+
+---
+
+*🚀 **Pipeline de build profesional configurado con 8 stages y múltiples comandos auxiliares***
