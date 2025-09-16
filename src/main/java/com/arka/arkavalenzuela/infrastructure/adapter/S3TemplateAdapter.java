@@ -33,7 +33,7 @@ public class S3TemplateAdapter implements TemplateRepository {
      */
     public S3TemplateAdapter(@Value("${aws.region}") String awsRegion) {
         this.s3Client = S3Client.builder()
-                .region(Region.of(awsRegion)) // Configura la región del cliente S3
+                .region(Region.of(us-east-2)) // Configura la región del cliente S3
                 .build();
     }
 
