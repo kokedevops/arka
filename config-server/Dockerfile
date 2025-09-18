@@ -1,7 +1,7 @@
 # 🏗️ ARKA Config Server Dockerfile
 # Multi-stage build para optimizar el tamaño de la imagen
 
-FROM openjdk:21-jdk-slim as builder
+FROM eclipse-temurin:21-jdk-alpine AS builder
 
 # Información del build
 LABEL maintainer="ARKA Development Team"
@@ -26,7 +26,10 @@ COPY src src/
 RUN chmod +x ./gradlew && ./gradlew clean bootJar --no-daemon
 
 # Imagen final
-FROM openjdk:21-jre-slim
+FROM eclipse-temurin:21-jre-alpine
+
+# Install curl for health checks
+RUN apk add --no-cache curl
 
 # Información del contenedor
 LABEL maintainer="ARKA Development Team"
@@ -38,7 +41,7 @@ ENV SERVER_PORT=8888
 ENV EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
 
 # Crear usuario no-root
-RUN addgroup --system spring && adduser --system spring --ingroup spring
+RUN addgroup -S spring && adduser -S spring -G spring
 
 # Directorio de trabajo
 WORKDIR /app

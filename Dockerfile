@@ -1,5 +1,5 @@
 # Dockerfile para la aplicación principal ARKA E-commerce
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:21-jdk-alpine
 
 # Metadata
 LABEL maintainer="ARKA Development Team"
@@ -14,10 +14,9 @@ ENV SERVER_PORT=8888
 WORKDIR /app
 
 # Instalar herramientas necesarias
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     curl \
-    netcat-traditional \
-    && rm -rf /var/lib/apt/lists/*
+    netcat-openbsd
 
 # Copiar archivos de Gradle
 COPY gradlew .

@@ -1,5 +1,5 @@
 # API Gateway Dockerfile
-FROM openjdk:21-jdk-slim as build
+FROM eclipse-temurin:21-jdk-alpine AS build
 
 WORKDIR /workspace/app
 
@@ -16,13 +16,13 @@ COPY src src
 RUN chmod +x gradlew && ./gradlew clean build -x test
 
 # Runtime stage
-FROM openjdk:21-jdk-slim
+FROM eclipse-temurin:21-jre-alpine
 
 # Install curl for health checks
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache curl
 
 # Create application user
-RUN groupadd -r arka && useradd -r -g arka arka
+RUN addgroup -S arka && adduser -S arka -G arka
 
 WORKDIR /app
 
