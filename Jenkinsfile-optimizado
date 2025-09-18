@@ -1,0 +1,71 @@
+// Jenkinsfile optimizado para evitar problemas de memoria
+pipeline {
+    agent any
+    
+    options {
+        timeout(time: 45, unit: 'MINUTES')
+        retry(1)
+    }
+    
+    environment {
+        DOCKER_BUILDKIT = '1'
+        COMPOSE_DOCKER_CLI_BUILD = '1'
+    }
+    
+    stages {
+        stage('Limpiar Workspace') {
+            steps {
+                script {
+                    sh 'docker system prune -f'
+                    sh 'docker volume prune -f'
+                }
+            }
+        }
+        
+        stage('Clonar Código') {
+            steps {
+                script {
+                    echo 'Clonando el código'
+                    sh 'rm -rf arkavalenzuela'
+                    sh 'git clone https://github.com/kokedevops/arkavalenzuela.git -b proyecto-entrega'
+                }
+            }
+        }
+        
+        stage('Build Secuencial') {
+            steps {
+                script {
+                    echo 'Compilando servicios secuencialmente'
+                    dir('arkavalenzuela') {
+                        // Usar el script de build secuencial
+                        sh 'chmod +x scripts/build-secuencial.sh'
+                        sh './scripts/build-secuencial.sh'
+                    }
+                }
+            }
+        }
+        
+        stage('Verificar Imágenes') {
+            steps {
+                script {
+                    sh 'docker images | grep arka'
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            script {
+                // Limpiar después del build
+                sh 'docker system prune -f'
+            }
+        }
+        failure {
+            script {
+                echo 'Build falló - revisando logs'
+                sh 'docker logs $(docker ps -aq) || true'
+            }
+        }
+    }
+}

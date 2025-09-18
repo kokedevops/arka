@@ -1,7 +1,11 @@
-# Hello World Service Dockerfile
+# Hello World Service Dockerfile - Optimizado para Jenkins
 FROM eclipse-temurin:21-jdk-alpine AS build
 
 ARG MODULE_NAME=hello-world-service
+
+# Variables de entorno para optimizar memoria
+ENV GRADLE_OPTS="-Xmx512m -Xms256m -XX:MaxMetaspaceSize=128m"
+ENV JAVA_OPTS="-Xmx512m -Xms256m"
 
 WORKDIR /workspace/app
 
@@ -10,14 +14,15 @@ COPY gradlew gradlew.bat ./
 COPY gradle gradle
 COPY build.gradle settings.gradle ./
 
-# Copy all source code (needed for multi-module build)
+# Copy only necessary modules
 COPY hello-world-service hello-world-service
-COPY arka-security-common arka-security-common
 
-# Make gradlew executable and build specific module
-RUN chmod +x gradlew && \
-    ./gradlew --version && \
-    ./gradlew :${MODULE_NAME}:clean :${MODULE_NAME}:build -x test --no-daemon --parallel
+# Make gradlew executable and build in stages
+RUN chmod +x gradlew
+
+# Build step by step to avoid memory issues
+RUN ./gradlew --version
+RUN ./gradlew :hello-world-service:build -x test --no-daemon --max-workers=1
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine

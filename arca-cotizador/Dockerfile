@@ -3,9 +3,9 @@ FROM eclipse-temurin:21-jdk-alpine AS build
 
 ARG MODULE_NAME=arca-cotizador
 
-# Variables de entorno para optimizar memoria
-ENV GRADLE_OPTS="-Xmx1g -Xms512m -XX:MaxMetaspaceSize=256m"
-ENV JAVA_OPTS="-Xmx1g -Xms512m"
+# Variables de entorno para optimizar memoria - MUY RESTRICTIVO
+ENV GRADLE_OPTS="-Xmx512m -Xms256m -XX:MaxMetaspaceSize=128m"
+ENV JAVA_OPTS="-Xmx512m -Xms256m"
 
 WORKDIR /workspace/app
 
