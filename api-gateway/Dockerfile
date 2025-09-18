@@ -14,7 +14,9 @@ COPY build.gradle settings.gradle ./
 COPY api-gateway api-gateway
 
 # Make gradlew executable and build specific module
-RUN chmod +x gradlew && ./gradlew :${MODULE_NAME}:clean :${MODULE_NAME}:build -x test
+RUN chmod +x gradlew && \
+    ./gradlew --version && \
+    ./gradlew :${MODULE_NAME}:clean :${MODULE_NAME}:build -x test --no-daemon --parallel
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine
