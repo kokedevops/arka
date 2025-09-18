@@ -11,14 +11,18 @@ COPY gradle gradle
 COPY build.gradle settings.gradle ./
 
 # Copy all source code (needed for multi-module build)
-COPY arca-cotizador arca-cotizador
-COPY arka-security-common arka-security-common
+COPY . .
 
 # Make gradlew executable and build specific module
 RUN chmod +x gradlew && \
+    echo "=== Gradle Wrapper Version ===" && \
     ./gradlew --version && \
-    ./gradlew :${MODULE_NAME}:dependencies --refresh-dependencies && \
-    ./gradlew :${MODULE_NAME}:clean :${MODULE_NAME}:build -x test --no-daemon --parallel
+    echo "=== Available projects ===" && \
+    ./gradlew projects && \
+    echo "=== Building arka-security-common first ===" && \
+    ./gradlew :arka-security-common:build -x test --no-daemon && \
+    echo "=== Building arca-cotizador ===" && \
+    ./gradlew :arca-cotizador:build -x test --no-daemon
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine

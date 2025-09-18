@@ -1,0 +1,52 @@
+# Debug Dockerfile for Cotizador
+FROM eclipse-temurin:21-jdk-alpine AS build
+
+WORKDIR /workspace/app
+
+# Copy everything first
+COPY . .
+
+# Check what we have
+RUN echo "=== Contents of workspace ===" && \
+    find . -name "*.gradle" -type f && \
+    echo "=== Gradle wrapper ===" && \
+    ls -la gradlew* && \
+    echo "=== Module structure ===" && \
+    ls -la arca-cotizador/ && \
+    echo "=== Security common ===" && \
+    ls -la arka-security-common/
+
+# Try simple gradle command first
+RUN chmod +x gradlew && \
+    ./gradlew --version
+
+# List available projects
+RUN ./gradlew projects
+
+# Try building just the dependency first
+RUN ./gradlew :arka-security-common:build -x test --no-daemon || echo "Security common build failed"
+
+# Then try cotizador
+RUN ./gradlew :arca-cotizador:build -x test --no-daemon || echo "Cotizador build failed"
+
+# Runtime stage
+FROM eclipse-temurin:21-jre-alpine
+
+RUN apk add --no-cache curl && \
+    addgroup -S arka && adduser -S arka -G arka
+
+WORKDIR /app
+
+# Copy jar file
+COPY --from=build /workspace/app/arca-cotizador/build/libs/*.jar app.jar
+
+RUN chown -R arka:arka /app
+
+USER arka
+
+EXPOSE 8083
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+  CMD curl -f http://localhost:8083/actuator/health || exit 1
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
