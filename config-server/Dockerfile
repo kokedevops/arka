@@ -3,6 +3,8 @@
 
 FROM eclipse-temurin:21-jdk-alpine AS builder
 
+ARG MODULE_NAME=config-server
+
 # Información del build
 LABEL maintainer="ARKA Development Team"
 LABEL description="Config Server for ARKA E-commerce Platform"
@@ -15,18 +17,20 @@ ENV SERVER_PORT=8888
 # Directorio de trabajo
 WORKDIR /app
 
-# Copiar archivos de configuración de Gradle
+# Copiar archivos de configuración de Gradle desde la raíz
 COPY build.gradle settings.gradle gradlew ./
 COPY gradle gradle/
 
-# Copiar código fuente
-COPY src src/
+# Copiar código fuente del módulo específico
+COPY config-server config-server/
 
 # Compilar la aplicación
-RUN chmod +x ./gradlew && ./gradlew clean bootJar --no-daemon
+RUN chmod +x ./gradlew && ./gradlew :${MODULE_NAME}:clean :${MODULE_NAME}:bootJar --no-daemon
 
 # Imagen final
 FROM eclipse-temurin:21-jre-alpine
+
+ARG MODULE_NAME=config-server
 
 # Install curl for health checks
 RUN apk add --no-cache curl
@@ -47,7 +51,7 @@ RUN addgroup -S spring && adduser -S spring -G spring
 WORKDIR /app
 
 # Copiar el JAR desde la etapa de build
-COPY --from=builder /app/build/libs/*.jar app.jar
+COPY --from=builder /app/${MODULE_NAME}/build/libs/*.jar app.jar
 
 # Cambiar propietario
 RUN chown spring:spring app.jar

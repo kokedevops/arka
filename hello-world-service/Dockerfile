@@ -1,33 +1,35 @@
 # Hello World Service Dockerfile
 FROM eclipse-temurin:17-jdk-alpine AS build
 
+ARG MODULE_NAME=hello-world-service
+
 WORKDIR /workspace/app
 
-# Copy gradle wrapper and build files
+# Copy gradle wrapper and build files from root
 COPY gradlew gradlew.bat ./
 COPY gradle gradle
-COPY build.gradle ./
-COPY settings.gradle ./
+COPY build.gradle settings.gradle ./
 
-# Copy source code
-COPY src src
+# Copy all source code (needed for multi-module build)
+COPY hello-world-service hello-world-service
+COPY arka-security-common arka-security-common
 
-# Make gradlew executable and build
-RUN chmod +x gradlew && ./gradlew clean build -x test
+# Make gradlew executable and build specific module
+RUN chmod +x gradlew && ./gradlew :${MODULE_NAME}:clean :${MODULE_NAME}:build -x test
 
 # Runtime stage
 FROM eclipse-temurin:17-jre-alpine
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+ARG MODULE_NAME=hello-world-service
 
-# Create application user
-RUN addgroup -S arka && adduser -S arka -G arka
+# Install curl for health checks and create application user
+RUN apk add --no-cache curl && \
+    addgroup -S arka && adduser -S arka -G arka
 
 WORKDIR /app
 
 # Copy jar file
-COPY --from=build /workspace/app/build/libs/*.jar app.jar
+COPY --from=build /workspace/app/${MODULE_NAME}/build/libs/*.jar app.jar
 
 # Change ownership
 RUN chown -R arka:arka /app
