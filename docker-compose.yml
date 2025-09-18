@@ -5,8 +5,10 @@ services:
   
   config-server:
     build:
-      context: ./config-server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: config-server/Dockerfile
+      args:
+        MODULE_NAME: config-server
     container_name: arka-config-server
     ports:
       - "8888:8888"
@@ -30,8 +32,10 @@ services:
 
   eureka-server:
     build:
-      context: ./eureka-server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: eureka-server/Dockerfile
+      args:
+        MODULE_NAME: eureka-server
     container_name: arka-eureka-server
     ports:
       - "8761:8761"
@@ -123,8 +127,10 @@ services:
   
   api-gateway:
     build:
-      context: ./api-gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: api-gateway/Dockerfile
+      args:
+        MODULE_NAME: api-gateway
     container_name: arka-api-gateway
     ports:
       - "8080:8080"
@@ -150,8 +156,10 @@ services:
   
   gestor-solicitudes:
     build:
-      context: ./arca-gestor-solicitudes
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: arca-gestor-solicitudes/Dockerfile
+      args:
+        MODULE_NAME: arca-gestor-solicitudes
     container_name: arka-gestor-solicitudes
     ports:
       - "8082:8082"
@@ -185,8 +193,10 @@ services:
 
   cotizador:
     build:
-      context: ./arca-cotizador
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: arca-cotizador/Dockerfile
+      args:
+        MODULE_NAME: arca-cotizador
     container_name: arka-cotizador
     ports:
       - "8083:8083"
@@ -217,8 +227,10 @@ services:
 
   hello-world-service:
     build:
-      context: ./hello-world-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: hello-world-service/Dockerfile
+      args:
+        MODULE_NAME: hello-world-service
     container_name: arka-hello-world
     ports:
       - "8084:8084"
