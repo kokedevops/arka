@@ -1,7 +1,11 @@
-# Gestor Solicitudes Dockerfile
+# Gestor Solicitudes Dockerfile - Optimizado para Jenkins
 FROM eclipse-temurin:21-jdk-alpine AS build
 
 ARG MODULE_NAME=arca-gestor-solicitudes
+
+# Variables de entorno para optimizar memoria
+ENV GRADLE_OPTS="-Xmx1g -Xms512m -XX:MaxMetaspaceSize=256m"
+ENV JAVA_OPTS="-Xmx1g -Xms512m"
 
 WORKDIR /workspace/app
 
@@ -10,15 +14,17 @@ COPY gradlew gradlew.bat ./
 COPY gradle gradle
 COPY build.gradle settings.gradle ./
 
-# Copy all source code (needed for multi-module build)
+# Copy only necessary modules
 COPY arca-gestor-solicitudes arca-gestor-solicitudes
 COPY arka-security-common arka-security-common
 
-# Make gradlew executable and build specific module
-RUN chmod +x gradlew && \
-    ./gradlew --version && \
-    ./gradlew :${MODULE_NAME}:dependencies --refresh-dependencies && \
-    ./gradlew :${MODULE_NAME}:clean :${MODULE_NAME}:build -x test --no-daemon --parallel
+# Make gradlew executable and build in stages
+RUN chmod +x gradlew
+
+# Build step by step to avoid memory issues
+RUN ./gradlew --version
+RUN ./gradlew :arka-security-common:build -x test --no-daemon --max-workers=1
+RUN ./gradlew :arca-gestor-solicitudes:build -x test --no-daemon --max-workers=1
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine

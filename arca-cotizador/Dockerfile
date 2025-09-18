@@ -1,7 +1,11 @@
-# Cotizador Dockerfile
+# Cotizador Dockerfile - Optimizado para Jenkins
 FROM eclipse-temurin:21-jdk-alpine AS build
 
 ARG MODULE_NAME=arca-cotizador
+
+# Variables de entorno para optimizar memoria
+ENV GRADLE_OPTS="-Xmx1g -Xms512m -XX:MaxMetaspaceSize=256m"
+ENV JAVA_OPTS="-Xmx1g -Xms512m"
 
 WORKDIR /workspace/app
 
@@ -10,19 +14,17 @@ COPY gradlew gradlew.bat ./
 COPY gradle gradle
 COPY build.gradle settings.gradle ./
 
-# Copy all source code (needed for multi-module build)
-COPY . .
+# Copy only necessary modules to reduce build context
+COPY arca-cotizador arca-cotizador
+COPY arka-security-common arka-security-common
 
-# Make gradlew executable and build specific module
-RUN chmod +x gradlew && \
-    echo "=== Gradle Wrapper Version ===" && \
-    ./gradlew --version && \
-    echo "=== Available projects ===" && \
-    ./gradlew projects && \
-    echo "=== Building arka-security-common first ===" && \
-    ./gradlew :arka-security-common:build -x test --no-daemon && \
-    echo "=== Building arca-cotizador ===" && \
-    ./gradlew :arca-cotizador:build -x test --no-daemon
+# Make gradlew executable and build in stages
+RUN chmod +x gradlew
+
+# Build step by step to avoid memory issues
+RUN ./gradlew --version
+RUN ./gradlew :arka-security-common:build -x test --no-daemon --max-workers=1
+RUN ./gradlew :arca-cotizador:build -x test --no-daemon --max-workers=1
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine

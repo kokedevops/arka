@@ -1,0 +1,44 @@
+# Cotizador Dockerfile - Versión simplificada
+FROM eclipse-temurin:21-jdk-alpine AS build
+
+WORKDIR /workspace/app
+
+# Copy root gradle files
+COPY build.gradle settings.gradle gradlew gradlew.bat ./
+COPY gradle gradle
+
+# Copy all modules needed
+COPY arka-security-common arka-security-common
+COPY arca-cotizador arca-cotizador
+
+# Make gradlew executable
+RUN chmod +x gradlew
+
+# Build dependencies first, then the module
+RUN ./gradlew :arka-security-common:build -x test --no-daemon --stacktrace
+RUN ./gradlew :arca-cotizador:build -x test --no-daemon --stacktrace
+
+# Runtime stage
+FROM eclipse-temurin:21-jre-alpine
+
+# Install curl and create user
+RUN apk add --no-cache curl && \
+    addgroup -S arka && adduser -S arka -G arka
+
+WORKDIR /app
+
+# Copy jar file
+COPY --from=build /workspace/app/arca-cotizador/build/libs/*.jar app.jar
+
+# Set ownership and create data directory
+RUN mkdir -p /app/data && \
+    chown -R arka:arka /app
+
+USER arka
+
+EXPOSE 8083
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+  CMD curl -f http://localhost:8083/actuator/health || exit 1
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
