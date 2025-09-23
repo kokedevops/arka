@@ -74,6 +74,32 @@ subprojects {
 		toolVersion = "0.8.11"
 	}
 	
+	// 🚀 Configuración bootRun con opciones de desarrollo
+	bootRun {
+		// Habilitar live reload automático
+		if (project.hasProperty('dev')) {
+			systemProperty 'spring.profiles.active', 'dev'
+			systemProperty 'spring.devtools.restart.enabled', 'true'
+			systemProperty 'spring.devtools.livereload.enabled', 'true'
+		}
+		
+		// Configurar memoria JVM para desarrollo
+		jvmArgs = [
+			'-Xmx1024m',
+			'-Xms512m',
+			'-XX:+UseG1GC',
+			'-XX:+UseStringDeduplication'
+		]
+		
+		// Permitir debug remoto
+		if (project.hasProperty('debug')) {
+			jvmArgs += [
+				'-Xdebug',
+				'-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005'
+			]
+		}
+	}
+	
 	jacocoTestReport {
 		dependsOn test
 		reports {
@@ -102,6 +128,137 @@ subprojects {
 				limit {
 					minimum = 0.60 // 60% mínimo de cobertura
 				}
+			}
+		}
+	}
+}
+
+// ===============================================
+// 🚀 TAREAS GRADLE PARA BOOTRUN OPTIMIZADO
+// ===============================================
+
+// Tarea para iniciar todos los servicios en orden
+task startAllServices {
+	description = 'Inicia todos los microservicios en el orden correcto'
+	group = 'Arka Deployment'
+	
+	doLast {
+		println "🚀 Iniciando todos los microservicios..."
+		println "📋 Orden de inicio: Config Server -> Eureka -> Gateway -> Servicios"
+		println "💡 Tip: Usa Ctrl+C para detener cada servicio individualmente"
+		
+		// Ejecutar script PowerShell
+		if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+			exec {
+				commandLine 'powershell', '-ExecutionPolicy', 'Bypass', '-File', './start-all-services.ps1'
+			}
+		} else {
+			exec {
+				commandLine 'bash', './start-all-services.sh'
+			}
+		}
+	}
+}
+
+// Tarea para verificar health de servicios
+task checkHealth {
+	description = 'Verifica el health de todos los microservicios'
+	group = 'Arka Deployment'
+	
+	doLast {
+		println "🔍 Verificando health de todos los servicios..."
+		
+		if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+			exec {
+				commandLine 'powershell', '-ExecutionPolicy', 'Bypass', '-File', './check-services-health.ps1'
+			}
+		} else {
+			println "❗ Health check automático disponible solo en Windows. Use curl manualmente."
+		}
+	}
+}
+
+// Tarea para detener todos los servicios
+task stopAllServices {
+	description = 'Detiene todos los microservicios'
+	group = 'Arka Deployment'
+	
+	doLast {
+		println "🛑 Deteniendo todos los microservicios..."
+		
+		if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+			exec {
+				commandLine 'powershell', '-ExecutionPolicy', 'Bypass', '-File', './stop-all-services.ps1'
+			}
+		} else {
+			exec {
+				commandLine 'pkill', '-f', 'gradle.*bootRun'
+			}
+		}
+	}
+}
+
+// Tareas específicas para cada servicio con configuración optimizada
+['config-server', 'eureka-server', 'api-gateway', 'hello-world-service', 'arca-cotizador', 'arca-gestor-solicitudes'].each { serviceName ->
+	
+	// Tarea para ejecutar servicio en modo desarrollo
+	task "start${serviceName.split('-').collect { it.capitalize() }.join('')}Dev" {
+		description = "Inicia ${serviceName} en modo desarrollo con live reload"
+		group = 'Arka Development'
+		
+		doLast {
+			println "🚀 Iniciando ${serviceName} en modo desarrollo..."
+			
+			exec {
+				commandLine './gradlew', ":${serviceName}:bootRun", "-Pdev", "-Pdebug"
+			}
+		}
+	}
+	
+	// Tarea para ejecutar servicio standalone (sin Eureka)
+	task "start${serviceName.split('-').collect { it.capitalize() }.join('')}Standalone" {
+		description = "Inicia ${serviceName} en modo standalone (sin Eureka)"
+		group = 'Arka Development'
+		
+		doLast {
+			println "🔧 Iniciando ${serviceName} en modo standalone..."
+			
+			exec {
+				commandLine './gradlew', ":${serviceName}:bootRun", 
+					"--args=--eureka.client.enabled=false --spring.profiles.active=standalone"
+			}
+		}
+	}
+}
+
+// Tarea para compilación continua
+task continuousBuild {
+	description = 'Inicia compilación continua para desarrollo'
+	group = 'Arka Development'
+	
+	doLast {
+		println "🔄 Iniciando compilación continua..."
+		println "💡 Los cambios se recompilarán automáticamente"
+		
+		exec {
+			commandLine './gradlew', 'classes', '--continuous'
+		}
+	}
+}
+
+// Tarea para generar reporte de dependencias
+task dependencyReport {
+	description = 'Genera reporte de dependencias de todos los módulos'
+	group = 'Arka Reports'
+	
+	doLast {
+		println "📊 Generando reporte de dependencias..."
+		
+		subprojects.each { subproject ->
+			println "\n🔍 Dependencias de ${subproject.name}:"
+			subproject.configurations.compileClasspath.each { dep ->
+				if (!dep.name.endsWith('.jar')) return
+				println "   └─ ${dep.name}"
 			}
 		}
 	}
