@@ -22,7 +22,7 @@ timeout /t 30 /nobreak >nul
 
 echo.
 echo 🎯 PASO 2: Iniciando Config Server...
-start "Config Server" cmd /k "gradle :config-server:bootRun --args='--spring.profiles.active=aws'"
+start "Config Server" cmd /k "gradle :config-server:bootRun --args='--spring.profiles.active=native,aws'"
 
 echo ⏳ Esperando 20 segundos para que Config Server se inicie...
 timeout /t 20 /nobreak >nul

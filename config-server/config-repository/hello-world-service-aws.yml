@@ -1,0 +1,37 @@
+# AWS Configuration for Hello World Service
+server:
+  port: 8083
+
+spring:
+  application:
+    name: hello-world-service
+
+# AWS Eureka Configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${AWS_EUREKA_HOST:localhost}:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    hostname: ${AWS_HOSTNAME:localhost}
+
+# AWS Configuration
+aws:
+  region: ${AWS_REGION:us-east-1}
+
+# Management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    com.arka.helloworld: INFO

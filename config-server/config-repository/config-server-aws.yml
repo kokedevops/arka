@@ -1,0 +1,43 @@
+# AWS Configuration for Config Server
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  cloud:
+    config:
+      server:
+        native:
+          search-locations: classpath:/config,file:./config-repository,file:../config-repository
+
+# Eureka Client Configuration for AWS
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${AWS_EUREKA_HOST:localhost}:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    hostname: ${AWS_HOSTNAME:localhost}
+    prefer-ip-address: true
+
+# AWS Configuration
+aws:
+  region: ${AWS_REGION:us-east-1}
+
+# Management Endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,env,configprops,refresh
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    org.springframework.cloud.config: INFO
+    com.arkavalenzuela: INFO
