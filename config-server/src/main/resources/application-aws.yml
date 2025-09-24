@@ -5,8 +5,6 @@ server:
 spring:
   application:
     name: config-server
-  profiles:
-    active: aws,native
   
   # Config Server en modo NATIVE (archivos locales)
   cloud:
@@ -14,6 +12,8 @@ spring:
       server:
         native:
           search-locations: classpath:/config,file:./config-repository,file:../config-repository
+        # IMPORTANTE: Activar perfil native para AWS
+        active-profiles: native
 
 # Eureka Client Configuration for AWS
 eureka:
