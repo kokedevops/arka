@@ -1,0 +1,51 @@
+# AWS Configuration for Arca Gestor Solicitudes
+server:
+  port: 8082
+
+spring:
+  webflux:
+    base-path: /
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${AWS_EUREKA_HOST:localhost}:8761/eureka/
+  instance:
+    prefer-ip-address: true
+    hostname: ${AWS_HOSTNAME:localhost}
+
+# AWS RDS Configuration
+spring:
+  r2dbc:
+    url: r2dbc:mysql://${AWS_DB_HOST:localhost}:3306/${AWS_DB_NAME:gestor_db}
+    username: ${AWS_DB_USERNAME:jvalenzuela}
+    password: ${AWS_DB_PASSWORD:Arca2025*}
+    pool:
+      initial-size: 10
+      max-size: 50
+
+# AWS Configuration
+aws:
+  region: ${AWS_REGION:us-east-1}
+
+# Message Integration
+spring:
+  integration:
+    channel:
+      auto-create: true
+
+# Logging
+logging:
+  level:
+    com.arka.gestorsolicitudes: INFO
+    reactor.netty: WARN
+
+# Management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always

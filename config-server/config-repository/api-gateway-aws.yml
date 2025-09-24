@@ -1,0 +1,49 @@
+# AWS Configuration for API Gateway
+server:
+  port: 8085
+
+spring:
+  main:
+    web-application-type: reactive
+  
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${AWS_EUREKA_HOST:localhost}:8761/eureka/
+  instance:
+    prefer-ip-address: true
+    hostname: ${AWS_HOSTNAME:localhost}
+
+# Gateway Routes Configuration
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: cotizador-service
+          uri: lb://arca-cotizador
+          predicates:
+            - Path=/api/cotizador/**
+          filters:
+            - StripPrefix=2
+        - id: gestor-service
+          uri: lb://arca-gestor-solicitudes
+          predicates:
+            - Path=/api/gestor/**
+          filters:
+            - StripPrefix=2
+        - id: hello-world-service
+          uri: lb://hello-world-service
+          predicates:
+            - Path=/api/hello/**
+          filters:
+            - StripPrefix=2
+
+# AWS Configuration
+aws:
+  region: ${AWS_REGION:us-east-1}
+
+# Logging
+logging:
+  level:
+    com.arka.gateway: INFO
+    org.springframework.cloud.gateway: INFO
