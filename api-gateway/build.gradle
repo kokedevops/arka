@@ -6,13 +6,13 @@ dependencies {
     implementation 'org.springframework.cloud:spring-cloud-starter-config'
     implementation 'org.springframework.cloud:spring-cloud-starter-bootstrap'
     
-    // Spring Security para Gateway
+    // Spring Security para Gateway - Solo WebFlux
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.security:spring-security-oauth2-resource-server'
     implementation 'org.springframework.security:spring-security-oauth2-jose'
     
-    // Módulo de seguridad común
-    implementation project(':arka-security-common')
+    // Módulo de seguridad común - EXCLUIDO temporalmente para evitar conflictos
+    // implementation project(':arka-security-common')
     
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
