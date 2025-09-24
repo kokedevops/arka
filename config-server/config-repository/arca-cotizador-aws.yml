@@ -14,12 +14,12 @@ eureka:
     prefer-ip-address: true
     hostname: ${AWS_HOSTNAME:localhost}
 
-# AWS RDS Configuration
+# AWS RDS Configuration - Using real AWS RDS instance
 spring:
   r2dbc:
-    url: r2dbc:mysql://${AWS_DB_HOST:localhost}:3306/${AWS_DB_NAME:cotizador_db}
-    username: ${AWS_DB_USERNAME:jvalenzuela}
-    password: ${AWS_DB_PASSWORD:Arca2025*}
+    url: r2dbc:mysql://172.31.48.25:3306/arka-base
+    username: admin
+    password: Koke1988*
     pool:
       initial-size: 10
       max-size: 50

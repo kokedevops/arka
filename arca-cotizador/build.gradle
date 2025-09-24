@@ -16,6 +16,7 @@ dependencies {
     // R2DBC drivers (ejemplo con H2 para desarrollo)
     runtimeOnly 'io.r2dbc:r2dbc-h2'
     runtimeOnly 'com.h2database:h2'
+    runtimeOnly 'io.asyncer:r2dbc-mysql:1.0.5'  // MySQL R2DBC driver for AWS RDS
     
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

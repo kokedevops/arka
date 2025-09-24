@@ -6,6 +6,13 @@ spring:
   application:
     name: config-server
   
+  # Spring Security Configuration for AWS
+  security:
+    user:
+      name: config-client
+      password: arka-client-2025
+      roles: USER
+  
   # Config Server en modo NATIVE (archivos locales)
   cloud:
     config:
