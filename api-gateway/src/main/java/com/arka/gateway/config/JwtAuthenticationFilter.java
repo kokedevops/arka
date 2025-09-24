@@ -1,6 +1,5 @@
 package com.arka.gateway.config;
 
-import com.arka.security.service.JwtService;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -11,17 +10,14 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
-import java.util.function.Predicate;
 
 /**
  * Filtro global de autenticación JWT para el API Gateway
- * TEMPORALMENTE DESACTIVADO para permitir arranque sin dependencias de seguridad
+ * VERSIÓN SIMPLIFICADA - Sin dependencias externas
+ * TODO: Integrar con servicio JWT cuando esté disponible
  */
-//@Component
+// @Component - Desactivado temporalmente
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
-    
-    //@Autowired
-    private JwtService jwtService;
     
     // Rutas que no requieren autenticación
     private static final List<String> OPEN_API_ENDPOINTS = List.of(
@@ -30,51 +26,23 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/auth/refresh",
             "/actuator/health",
             "/actuator/info",
-            "/eureka"
+            "/eureka",
+            "/cotizador", // Temporalmente abierto para testing
+            "/gestor"     // Temporalmente abierto para testing
     );
     
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         
-        // Verificar si la ruta está en la lista de endpoints abiertos
-        if (isOpenEndpoint(request.getPath().value())) {
-            return chain.filter(exchange);
-        }
+        // Por ahora, permitir todas las rutas
+        // TODO: Implementar validación JWT cuando el servicio esté disponible
         
-        // Extraer el token del header Authorization
-        String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        // Log de la request (para debugging)
+        System.out.println("API Gateway - Request: " + request.getMethod() + " " + request.getPath().value());
         
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return onError(exchange, "Token de autorización requerido", HttpStatus.UNAUTHORIZED);
-        }
-        
-        String token = authHeader.substring(7);
-        
-        try {
-            // Validar el token
-            if (jwtService.isTokenExpired(token)) {
-                return onError(exchange, "Token expirado", HttpStatus.UNAUTHORIZED);
-            }
-            
-            // Extraer información del usuario
-            String username = jwtService.extractUsername(token);
-            Long userId = jwtService.extractUserId(token);
-            String userRole = jwtService.extractUserRole(token);
-            
-            // Agregar headers con información del usuario para los microservicios
-            ServerHttpRequest modifiedRequest = request.mutate()
-                    .header("X-User-Id", String.valueOf(userId))
-                    .header("X-User-Name", username)
-                    .header("X-User-Role", userRole)
-                    .build();
-            
-            // Continuar con la cadena de filtros
-            return chain.filter(exchange.mutate().request(modifiedRequest).build());
-            
-        } catch (Exception e) {
-            return onError(exchange, "Token inválido", HttpStatus.UNAUTHORIZED);
-        }
+        // Continuar con la cadena de filtros sin validación
+        return chain.filter(exchange);
     }
     
     /**
