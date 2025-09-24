@@ -1,24 +1,22 @@
-# 🏗️ ARKA Config Server - Bootstrap Configuration
-# Configuración inicial que se carga antes que application.yml
+# 🏗️ ARKA Config Server - Bootstrap Configuration NATIVE
+# Configuración inicial - SOLO ARCHIVOS LOCALES
 
 spring:
   application:
     name: config-server
   
-  # Config Server Bootstrap
+  # ACTIVAR PERFIL NATIVE
+  profiles:
+    active: native
+  
+  # Config Server Bootstrap - SOLO NATIVE
   cloud:
     config:
       server:
         bootstrap: true
-        # Configuración local de archivos
+        # SOLO configuración local de archivos
         native:
-          search-locations: file:../config-repository
-        # Git configuration (backup)
-        git:
-          uri: file://${user.dir}/config-repository
-          clone-on-start: true
-          timeout: 10
-          refresh-rate: 60
+          search-locations: file:./config-repository,file:../config-repository,classpath:/config
 
 # Server configuration
 server:

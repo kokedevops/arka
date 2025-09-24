@@ -1,0 +1,20 @@
+# ARKA Config Server - Configuración MÍNIMA para testing
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  profiles:
+    active: native
+  cloud:
+    config:
+      server:
+        native:
+          search-locations: classpath:/config,file:./config-repository
+
+# Logging simple
+logging:
+  level:
+    org.springframework.cloud.config: INFO
+    com.arkavalenzuela: DEBUG

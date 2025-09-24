@@ -1,34 +1,23 @@
-# 🏗️ ARKA Config Server Configuration
-# Servidor de configuración centralizado para microservicios
+# 🏗️ ARKA Config Server Configuration - NATIVE MODE
+# Servidor de configuración centralizado usando archivos locales
 
 server:
-  port: 8989
-  servlet:
-    context-path: /
+  port: 8888
 
 spring:
   application:
     name: config-server
   
-  # Config Server Configuration
+  # IMPORTANTE: Activar perfil native
+  profiles:
+    active: native
+  
+  # Config Server en modo NATIVE (sin Git)
   cloud:
     config:
       server:
-        git:
-          # Configuración desde directorio local
-          uri: file://${user.dir}/config-repository
-          clone-on-start: true
-          force-pull: true
-        # Configuración nativa (archivos locales)
         native:
-          search-locations: file:../config-repository
-  
-  # Security Configuration
-  security:
-    user:
-      name: config-admin
-      password: config-secret
-      roles: ADMIN
+          search-locations: classpath:/config,file:./config-repository,file:../config-repository
 
 # Eureka Client Configuration
 eureka:
@@ -40,42 +29,19 @@ eureka:
   instance:
     hostname: localhost
     prefer-ip-address: true
-    lease-renewal-interval-in-seconds: 10
-    lease-expiration-duration-in-seconds: 20
 
 # Management Endpoints
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,env,configprops,refresh,restart
+        include: health,info,env,configprops,refresh
   endpoint:
     health:
       show-details: always
-    refresh:
-      enabled: true
-  info:
-    env:
-      enabled: true
 
-# Application Info
-info:
-  app:
-    name: ARKA Config Server
-    description: Servidor de configuración centralizado para microservicios ARKA
-    version: 1.0.0
-    author: ARKA Development Team
-  config:
-    location: file:../config-repository
-    profiles: dev,prod,test
-    security: basic-auth
-
-# Logging Configuration
+# Logging
 logging:
   level:
     org.springframework.cloud.config: DEBUG
-    org.springframework.security: INFO
     com.arkavalenzuela: DEBUG
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
