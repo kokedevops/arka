@@ -2,7 +2,7 @@
 # Servidor de configuración centralizado para microservicios
 
 server:
-  port: 8888
+  port: 8989
   servlet:
     context-path: /
 
