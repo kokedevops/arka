@@ -30,6 +30,11 @@ eureka:
 aws:
   region: ${AWS_REGION:us-east-1}
 
+# Security Configuration - DESHABILITADA para AWS
+spring:
+  security:
+    enabled: false
+
 # Management Endpoints
 management:
   endpoints:
@@ -39,6 +44,8 @@ management:
   endpoint:
     health:
       show-details: always
+  security:
+    enabled: false
 
 # Logging
 logging:
