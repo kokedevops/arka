@@ -1,0 +1,67 @@
+pipeline {
+    agent any
+    
+    environment {
+        AWS_PROFILE = 'aws'
+        JAVA_OPTS = '-Xms512m -Xmx1024m -XX:+UseG1GC'
+        DIST_DIR = 'dist/jars'
+    }
+    
+    stages {
+        stage('Build JARs') {
+            steps {
+                echo '🔨 Building production JARs for AWS...'
+                bat 'gradlew clean bootJar'
+                
+                // Copy JARs to distribution directory
+                bat '''
+                    if not exist "%DIST_DIR%" mkdir "%DIST_DIR%"
+                    copy "config-server\\build\\libs\\config-server.jar" "%DIST_DIR%\\"
+                    copy "eureka-server\\build\\libs\\eureka-server.jar" "%DIST_DIR%\\"
+                    copy "api-gateway\\build\\libs\\api-gateway.jar" "%DIST_DIR%\\"
+                    copy "arca-cotizador\\build\\libs\\arca-cotizador.jar" "%DIST_DIR%\\"
+                    copy "arca-gestor-solicitudes\\build\\libs\\arca-gestor-solicitudes.jar" "%DIST_DIR%\\"
+                    copy "hello-world-service\\build\\libs\\hello-world-service.jar" "%DIST_DIR%\\"
+                '''
+            }
+        }
+        
+        stage('Deploy AWS') {
+            steps {
+                echo '🚀 Deploying to AWS environment...'
+                bat '''
+                    powershell -ExecutionPolicy Bypass -File "scripts/deploy-aws-production.ps1" -Action deploy
+                '''
+            }
+        }
+        
+        stage('Verify Deployment') {
+            steps {
+                echo '✅ Verifying AWS deployment...'
+                sleep time: 30, unit: 'SECONDS'
+                
+                bat '''
+                    powershell -ExecutionPolicy Bypass -File "scripts/deploy-aws-production.ps1" -Action status
+                '''
+            }
+        }
+    }
+    
+    post {
+        always {
+            archiveArtifacts artifacts: 'dist/jars/*.jar', fingerprint: true
+            archiveArtifacts artifacts: 'logs/aws/*.log', allowEmptyArchive: true
+        }
+        
+        success {
+            echo '🎉 AWS Deployment successful!'
+        }
+        
+        failure {
+            echo '❌ AWS Deployment failed!'
+            bat '''
+                powershell -ExecutionPolicy Bypass -File "scripts/deploy-aws-production.ps1" -Action stop
+            '''
+        }
+    }
+}

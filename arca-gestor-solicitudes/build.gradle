@@ -68,4 +68,12 @@ jar {
 
 bootJar {
     enabled = true
+    archiveFileName = 'arca-gestor-solicitudes.jar'
+    // Incluir todas las dependencias para ejecución independiente
+    launchScript()
+}
+
+// Configuración para despliegue en WildFly como JAR independiente
+springBoot {
+    buildInfo()
 }

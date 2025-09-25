@@ -1,0 +1,348 @@
+pipeline {
+    agent any
+    
+    environment {
+        // AWS Configuration
+        AWS_PROFILE = 'aws'
+        JAVA_HOME = tool name: 'JDK-21', type: 'jdk'
+        PATH = "${JAVA_HOME}/bin:${env.PATH}"
+        
+        // Artifact configuration
+        DIST_DIR = 'dist/jars'
+        LOGS_DIR = 'logs'
+        PIDS_DIR = 'pids'
+        
+        // AWS Deployment Configuration
+        AWS_REGION = 'us-east-1'
+        AWS_S3_BUCKET = 'arka-s3-bucket2'
+        
+        // Database Configuration (from your existing AWS config)
+        AWS_DB_HOST = '172.31.48.25'
+        AWS_DB_NAME = 'arka-base'
+        AWS_DB_USERNAME = 'admin'
+        AWS_DB_PASSWORD = credentials('aws-db-password')
+        
+        // DocumentDB Configuration
+        AWS_DOCDB_URI = credentials('aws-docdb-uri')
+        
+        // Service ports
+        CONFIG_SERVER_PORT = '8888'
+        EUREKA_SERVER_PORT = '8761'
+        API_GATEWAY_PORT = '8085'
+        COTIZADOR_PORT = '8081'
+        GESTOR_SOLICITUDES_PORT = '8082'
+        HELLO_WORLD_PORT = '8083'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                script {
+                    env.BUILD_VERSION = sh(
+                        script: "echo '${BUILD_NUMBER}-${GIT_COMMIT[0..7]}'",
+                        returnStdout: true
+                    ).trim()
+                }
+            }
+        }
+        
+        stage('Clean & Prepare') {
+            steps {
+                echo '🧹 Cleaning previous builds...'
+                bat 'gradlew clean'
+                
+                // Create necessary directories
+                bat '''
+                    if not exist "%DIST_DIR%" mkdir "%DIST_DIR%"
+                    if not exist "%LOGS_DIR%" mkdir "%LOGS_DIR%"
+                    if not exist "%PIDS_DIR%" mkdir "%PIDS_DIR%"
+                '''
+            }
+        }
+        
+        stage('Build Production JARs') {
+            steps {
+                echo '🔨 Building all production JARs...'
+                bat 'gradlew bootJar'
+                
+                script {
+                    def services = [
+                        'config-server',
+                        'eureka-server', 
+                        'api-gateway',
+                        'arca-cotizador',
+                        'arca-gestor-solicitudes',
+                        'hello-world-service'
+                    ]
+                    
+                    // Verify JARs were created
+                    services.each { service ->
+                        def jarPath = "${service}/build/libs/${service}.jar"
+                        if (!fileExists(jarPath)) {
+                            error("❌ JAR not found: ${jarPath}")
+                        } else {
+                            echo "✅ JAR verified: ${jarPath}"
+                        }
+                    }
+                    
+                    // Copy JARs to distribution directory
+                    services.each { service ->
+                        def jarPath = "${service}/build/libs/${service}.jar"
+                        bat "copy \"${jarPath}\" \"%DIST_DIR%\\${service}.jar\""
+                    }
+                }
+            }
+        }
+        
+        stage('Stop Previous Services') {
+            steps {
+                echo '🛑 Stopping previous services...'
+                script {
+                    try {
+                        bat '''
+                            powershell -ExecutionPolicy Bypass -File "scripts/deploy-production.ps1" -Profile aws -Action stop -Service all
+                        '''
+                    } catch (Exception e) {
+                        echo "⚠️ Warning: Could not stop some services (they may not be running)"
+                    }
+                }
+                
+                // Wait for services to stop
+                sleep time: 10, unit: 'SECONDS'
+            }
+        }
+        
+        stage('Deploy Infrastructure Services') {
+            parallel {
+                stage('Deploy Config Server') {
+                    steps {
+                        echo '🚀 Starting Config Server...'
+                        bat '''
+                            powershell -ExecutionPolicy Bypass -File "scripts/deploy-production.ps1" -Profile aws -Action start -Service config-server
+                        '''
+                        
+                        // Health check
+                        timeout(time: 2, unit: 'MINUTES') {
+                            waitUntil {
+                                script {
+                                    try {
+                                        def response = bat(
+                                            script: 'curl -s -o NUL -w "%%{http_code}" http://localhost:8888/actuator/health',
+                                            returnStdout: true
+                                        ).trim()
+                                        return response == '200'
+                                    } catch (Exception e) {
+                                        return false
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                stage('Deploy Eureka Server') {
+                    steps {
+                        // Wait for Config Server
+                        sleep time: 30, unit: 'SECONDS'
+                        
+                        echo '🚀 Starting Eureka Server...'
+                        bat '''
+                            powershell -ExecutionPolicy Bypass -File "scripts/deploy-production.ps1" -Profile aws -Action start -Service eureka-server
+                        '''
+                        
+                        // Health check
+                        timeout(time: 2, unit: 'MINUTES') {
+                            waitUntil {
+                                script {
+                                    try {
+                                        def response = bat(
+                                            script: 'curl -s -o NUL -w "%%{http_code}" http://localhost:8761/actuator/health',
+                                            returnStdout: true
+                                        ).trim()
+                                        return response == '200'
+                                    } catch (Exception e) {
+                                        return false
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy Business Services') {
+            parallel {
+                stage('Deploy API Gateway') {
+                    steps {
+                        // Wait for infrastructure services
+                        sleep time: 45, unit: 'SECONDS'
+                        
+                        echo '🚀 Starting API Gateway...'
+                        bat '''
+                            powershell -ExecutionPolicy Bypass -File "scripts/deploy-production.ps1" -Profile aws -Action start -Service api-gateway
+                        '''
+                    }
+                }
+                
+                stage('Deploy Cotizador') {
+                    steps {
+                        sleep time: 45, unit: 'SECONDS'
+                        
+                        echo '🚀 Starting Arca Cotizador...'
+                        bat '''
+                            powershell -ExecutionPolicy Bypass -File "scripts/deploy-production.ps1" -Profile aws -Action start -Service arca-cotizador
+                        '''
+                    }
+                }
+                
+                stage('Deploy Gestor Solicitudes') {
+                    steps {
+                        sleep time: 45, unit: 'SECONDS'
+                        
+                        echo '🚀 Starting Gestor Solicitudes...'
+                        bat '''
+                            powershell -ExecutionPolicy Bypass -File "scripts/deploy-production.ps1" -Profile aws -Action start -Service arca-gestor-solicitudes
+                        '''
+                    }
+                }
+                
+                stage('Deploy Hello World') {
+                    steps {
+                        sleep time: 45, unit: 'SECONDS'
+                        
+                        echo '🚀 Starting Hello World Service...'
+                        bat '''
+                            powershell -ExecutionPolicy Bypass -File "scripts/deploy-production.ps1" -Profile aws -Action start -Service hello-world-service
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Health Checks') {
+            steps {
+                echo '🏥 Performing health checks on all services...'
+                
+                script {
+                    def services = [
+                        [name: 'Config Server', port: '8888'],
+                        [name: 'Eureka Server', port: '8761'], 
+                        [name: 'API Gateway', port: '8085'],
+                        [name: 'Arca Cotizador', port: '8081'],
+                        [name: 'Gestor Solicitudes', port: '8082'],
+                        [name: 'Hello World', port: '8083']
+                    ]
+                    
+                    services.each { service ->
+                        timeout(time: 3, unit: 'MINUTES') {
+                            waitUntil {
+                                script {
+                                    try {
+                                        def response = bat(
+                                            script: "curl -s -o NUL -w \"%%{http_code}\" http://localhost:${service.port}/actuator/health",
+                                            returnStdout: true
+                                        ).trim()
+                                        
+                                        if (response == '200') {
+                                            echo "✅ ${service.name} is healthy"
+                                            return true
+                                        } else {
+                                            echo "⚠️ ${service.name} health check returned: ${response}"
+                                            return false
+                                        }
+                                    } catch (Exception e) {
+                                        echo "⚠️ ${service.name} health check failed: ${e.message}"
+                                        return false
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Service Registration Check') {
+            steps {
+                echo '📋 Checking service registration in Eureka...'
+                sleep time: 30, unit: 'SECONDS'
+                
+                script {
+                    try {
+                        def eurekaResponse = bat(
+                            script: 'curl -s http://localhost:8761/eureka/apps',
+                            returnStdout: true
+                        )
+                        echo "Eureka registered services: ${eurekaResponse}"
+                    } catch (Exception e) {
+                        echo "⚠️ Could not fetch Eureka registry: ${e.message}"
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo '📊 Deployment Status Report'
+            bat '''
+                powershell -ExecutionPolicy Bypass -File "scripts/deploy-production.ps1" -Profile aws -Action status
+            '''
+            
+            // Archive build artifacts
+            archiveArtifacts artifacts: 'dist/jars/*.jar', fingerprint: true
+            
+            // Archive logs
+            archiveArtifacts artifacts: 'logs/*.log', allowEmptyArchive: true
+        }
+        
+        success {
+            echo '🎉 AWS Deployment completed successfully!'
+            
+            // Send notification (configure according to your needs)
+            script {
+                def message = """
+                ✅ ARKA Microservices deployed successfully to AWS!
+                
+                📦 Build: ${env.BUILD_VERSION}
+                🌐 Profile: ${env.AWS_PROFILE}
+                🏗️ Services: 6 microservices
+                ⏰ Duration: ${currentBuild.durationString}
+                
+                🔗 Eureka Dashboard: http://localhost:8761
+                🔗 API Gateway: http://localhost:8085
+                """
+                
+                // Uncomment and configure your notification method:
+                // slackSend channel: '#deployments', message: message
+                // emailext subject: 'ARKA AWS Deployment Success', body: message, to: 'team@company.com'
+            }
+        }
+        
+        failure {
+            echo '❌ AWS Deployment failed!'
+            
+            // Stop services on failure
+            bat '''
+                powershell -ExecutionPolicy Bypass -File "scripts/deploy-production.ps1" -Profile aws -Action stop -Service all
+            '''
+            
+            script {
+                def message = """
+                ❌ ARKA Microservices deployment to AWS failed!
+                
+                📦 Build: ${env.BUILD_VERSION}
+                🌐 Profile: ${env.AWS_PROFILE}
+                ❌ Error: Check build logs for details
+                ⏰ Duration: ${currentBuild.durationString}
+                """
+                
+                // Uncomment and configure your notification method:
+                // slackSend channel: '#deployments', color: 'danger', message: message
+                // emailext subject: 'ARKA AWS Deployment Failed', body: message, to: 'team@company.com'
+            }
+        }
+    }
+}

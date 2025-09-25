@@ -48,6 +48,23 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+// Configuración para JAR ejecutable en WildFly
+jar {
+    enabled = false
+}
+
+bootJar {
+    enabled = true
+    archiveFileName = 'config-server.jar'
+    // Incluir todas las dependencias para ejecución independiente
+    launchScript()
+}
+
+// Configuración para despliegue en WildFly como JAR independiente
+springBoot {
+    buildInfo()
+}
+
 dependencyManagement {
     imports {
         mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"

@@ -1,0 +1,444 @@
+pipeline {
+    agent any
+    
+    environment {
+        // WildFly Configuration
+        WILDFLY_HOME = '/opt/wildfly'
+        SPRING_PROFILE = 'aws'
+        
+        // Build Configuration
+        GRADLE_OPTS = '-Xmx2g -Dorg.gradle.daemon=false'
+        JAVA_HOME = '/usr/lib/jvm/java-21-amazon-corretto'
+        
+        // Deployment Configuration
+        DEPLOY_USER = 'wildfly'
+        DEPLOY_GROUP = 'wildfly'
+        
+        // Notification
+        SLACK_CHANNEL = '#deployments'
+    }
+    
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 30, unit: 'MINUTES')
+        timestamps()
+    }
+    
+    triggers {
+        // Build automatically on push to main branches
+        githubPush()
+        // Nightly build for validation
+        cron('H 2 * * *')
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                echo '📋 Checking out source code...'
+                checkout scm
+                
+                script {
+                    env.GIT_COMMIT_SHORT = sh(
+                        script: 'git rev-parse --short HEAD',
+                        returnStdout: true
+                    ).trim()
+                    env.BUILD_VERSION = "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}"
+                }
+                
+                echo "🏷️ Build Version: ${env.BUILD_VERSION}"
+            }
+        }
+        
+        stage('Environment Setup') {
+            steps {
+                echo '🔧 Setting up build environment...'
+                
+                // Verify Java version
+                sh '''
+                    echo "Java Version:"
+                    java -version
+                    echo "Gradle Version:"
+                    ./gradlew --version
+                    echo "WildFly Home: ${WILDFLY_HOME}"
+                '''
+                
+                // Create necessary directories
+                sh '''
+                    mkdir -p dist/jars
+                    mkdir -p logs
+                    mkdir -p pids
+                    mkdir -p reports
+                '''
+                
+                // Set permissions for deployment scripts
+                sh 'chmod +x scripts/*.sh'
+            }
+        }
+        
+        stage('Build & Test') {
+            parallel {
+                stage('Compile & Package') {
+                    steps {
+                        echo '🔨 Building JARs with gradle build...'
+                        
+                        sh '''
+                            # Clean previous builds
+                            ./gradlew clean
+                            
+                            # Build all services
+                            ./gradlew build -x test --parallel --build-cache
+                            
+                            # List generated JARs
+                            echo "Generated JARs:"
+                            find . -name "*.jar" -path "*/build/libs/*" -exec ls -lh {} \\;
+                        '''
+                        
+                        // Archive build artifacts
+                        archiveArtifacts(
+                            artifacts: '**/build/libs/*.jar',
+                            allowEmptyArchive: false,
+                            fingerprint: true
+                        )
+                    }
+                }
+                
+                stage('Unit Tests') {
+                    steps {
+                        echo '🧪 Running unit tests...'
+                        
+                        sh './gradlew test --parallel'
+                        
+                        // Publish test results
+                        publishTestResults(
+                            testResultsPattern: '**/build/test-results/test/TEST-*.xml'
+                        )
+                        
+                        // Publish coverage reports (if JaCoCo is configured)
+                        script {
+                            if (fileExists('**/build/reports/jacoco/test/jacocoTestReport.xml')) {
+                                publishCoverage(
+                                    adapters: [jacocoAdapter('**/build/reports/jacoco/test/jacocoTestReport.xml')],
+                                    sourceFileResolver: sourceFiles('STORE_LAST_BUILD')
+                                )
+                            }
+                        }
+                    }
+                    post {
+                        always {
+                            archiveArtifacts(
+                                artifacts: '**/build/reports/tests/**/*',
+                                allowEmptyArchive: true
+                            )
+                        }
+                    }
+                }
+                
+                stage('Code Quality') {
+                    steps {
+                        echo '📊 Running code quality analysis...'
+                        
+                        // Run checkstyle (if configured)
+                        script {
+                            try {
+                                sh './gradlew checkstyleMain'
+                                publishCheckstyle(
+                                    pattern: '**/build/reports/checkstyle/*.xml'
+                                )
+                            } catch (Exception e) {
+                                echo "Checkstyle not configured, skipping..."
+                            }
+                        }
+                        
+                        // Run SpotBugs (if configured)
+                        script {
+                            try {
+                                sh './gradlew spotbugsMain'
+                                publishSpotBugs(
+                                    pattern: '**/build/reports/spotbugs/*.xml'
+                                )
+                            } catch (Exception e) {
+                                echo "SpotBugs not configured, skipping..."
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Prepare JARs for Deployment') {
+            steps {
+                echo '📦 Preparing JARs for WildFly deployment...'
+                
+                sh '''
+                    # Copy JARs to distribution directory
+                    ./scripts/deploy-jars-wildfly.sh --action status --skip-build
+                    
+                    # Copy JARs to dist/jars
+                    services=(
+                        "config-server"
+                        "eureka-server"
+                        "api-gateway"
+                        "arca-cotizador"
+                        "arca-gestor-solicitudes"
+                        "hello-world-service"
+                    )
+                    
+                    for service in "${services[@]}"; do
+                        jar_source="$service/build/libs/$service.jar"
+                        jar_dest="dist/jars/$service.jar"
+                        
+                        if [[ -f "$jar_source" ]]; then
+                            cp "$jar_source" "$jar_dest"
+                            echo "✅ Copied $service.jar ($(du -h $jar_dest | cut -f1))"
+                        else
+                            echo "❌ JAR not found: $jar_source"
+                            exit 1
+                        fi
+                    done
+                '''
+                
+                // Archive prepared JARs
+                archiveArtifacts(
+                    artifacts: 'dist/jars/*.jar',
+                    allowEmptyArchive: false,
+                    fingerprint: true
+                )
+            }
+        }
+        
+        stage('Deploy to WildFly') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'proyecto-entrega'
+                    branch 'develop'
+                }
+            }
+            steps {
+                echo '🚀 Deploying JARs to WildFly...'
+                
+                script {
+                    // Stop existing services if running
+                    try {
+                        sh './scripts/deploy-jars-wildfly.sh --action stop'
+                    } catch (Exception e) {
+                        echo "No services to stop or stop failed: ${e.getMessage()}"
+                    }
+                    
+                    // Deploy new JARs
+                    sh '''
+                        ./scripts/deploy-jars-wildfly.sh \\
+                            --action deploy \\
+                            --profile ${SPRING_PROFILE} \\
+                            --wildfly-home ${WILDFLY_HOME} \\
+                            --skip-build
+                    '''
+                }
+            }
+            post {
+                always {
+                    // Archive deployment logs
+                    archiveArtifacts(
+                        artifacts: 'logs/*.log',
+                        allowEmptyArchive: true
+                    )
+                }
+            }
+        }
+        
+        stage('Health Check & Validation') {
+            steps {
+                echo '🏥 Running health checks...'
+                
+                script {
+                    // Wait for services to be ready
+                    sleep(30)
+                    
+                    // Check deployment status
+                    sh './scripts/deploy-jars-wildfly.sh --action status'
+                    
+                    // Individual service health checks
+                    def services = [
+                        [name: 'config-server', port: '8888', path: '/actuator/health'],
+                        [name: 'eureka-server', port: '8761', path: '/actuator/health'],
+                        [name: 'api-gateway', port: '8085', path: '/actuator/health'],
+                        [name: 'arca-cotizador', port: '8081', path: '/actuator/health'],
+                        [name: 'arca-gestor-solicitudes', port: '8082', path: '/actuator/health'],
+                        [name: 'hello-world-service', port: '8083', path: '/actuator/health']
+                    ]
+                    
+                    def healthResults = [:]
+                    
+                    services.each { service ->
+                        def healthUrl = "http://localhost:${service.port}${service.path}"
+                        
+                        try {
+                            def result = sh(
+                                script: "curl -s -f ${healthUrl} | jq -r '.status // \"UNKNOWN\"'",
+                                returnStdout: true
+                            ).trim()
+                            
+                            healthResults[service.name] = result
+                            
+                            if (result == 'UP') {
+                                echo "✅ ${service.name} is healthy"
+                            } else {
+                                echo "⚠️ ${service.name} health status: ${result}"
+                            }
+                        } catch (Exception e) {
+                            healthResults[service.name] = 'DOWN'
+                            echo "❌ ${service.name} health check failed: ${e.getMessage()}"
+                        }
+                    }
+                    
+                    // Store health check results
+                    writeFile file: 'health-check-results.json', 
+                             text: groovy.json.JsonBuilder(healthResults).toPrettyString()
+                    
+                    archiveArtifacts artifacts: 'health-check-results.json'
+                    
+                    // Fail if critical services are down
+                    def criticalServices = ['config-server', 'eureka-server']
+                    def criticalFailures = criticalServices.findAll { 
+                        healthResults[it] != 'UP' 
+                    }
+                    
+                    if (criticalFailures) {
+                        error("Critical services failed health check: ${criticalFailures.join(', ')}")
+                    }
+                }
+            }
+        }
+        
+        stage('Smoke Tests') {
+            steps {
+                echo '💨 Running smoke tests...'
+                
+                script {
+                    // Basic connectivity tests
+                    def testResults = [:]
+                    
+                    // Test Eureka registration
+                    try {
+                        def eurekaApps = sh(
+                            script: 'curl -s http://localhost:8761/eureka/apps | grep -c "<application>"',
+                            returnStdout: true
+                        ).trim()
+                        
+                        testResults['eureka_registered_apps'] = eurekaApps
+                        echo "📋 Eureka registered applications: ${eurekaApps}"
+                    } catch (Exception e) {
+                        testResults['eureka_registered_apps'] = '0'
+                        echo "⚠️ Eureka apps check failed: ${e.getMessage()}"
+                    }
+                    
+                    // Test API Gateway routing
+                    try {
+                        def gatewayResponse = sh(
+                            script: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:8085/actuator/health',
+                            returnStdout: true
+                        ).trim()
+                        
+                        testResults['gateway_response'] = gatewayResponse
+                        echo "🚪 API Gateway response: ${gatewayResponse}"
+                    } catch (Exception e) {
+                        testResults['gateway_response'] = 'FAILED'
+                        echo "❌ Gateway test failed: ${e.getMessage()}"
+                    }
+                    
+                    // Store test results
+                    writeFile file: 'smoke-test-results.json',
+                             text: groovy.json.JsonBuilder(testResults).toPrettyString()
+                    
+                    archiveArtifacts artifacts: 'smoke-test-results.json'
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo '📊 Build completed'
+            
+            // Clean workspace
+            script {
+                // Keep logs and important artifacts, clean gradle cache
+                sh '''
+                    ./gradlew --stop
+                    rm -rf ~/.gradle/caches/
+                '''
+            }
+        }
+        
+        success {
+            echo '🎉 Deployment successful!'
+            
+            // Notify success
+            script {
+                def message = """
+🎉 *Deployment Successful*
+📦 Project: ${env.JOB_NAME}
+🏷️ Version: ${env.BUILD_VERSION}
+🌿 Branch: ${env.BRANCH_NAME}
+⏱️ Duration: ${currentBuild.durationString}
+🔗 Build: ${env.BUILD_URL}
+"""
+                
+                // Uncomment if Slack plugin is available
+                // slackSend(channel: env.SLACK_CHANNEL, color: 'good', message: message)
+                
+                echo "Deployment notification: ${message}"
+            }
+        }
+        
+        failure {
+            echo '❌ Deployment failed!'
+            
+            script {
+                // Try to collect failure information
+                sh '''
+                    echo "=== Service Status ==="
+                    ./scripts/deploy-jars-wildfly.sh --action status || true
+                    
+                    echo "=== Recent Logs ==="
+                    find logs -name "*.log" -exec tail -50 {} \\; || true
+                    
+                    echo "=== System Resources ==="
+                    df -h || true
+                    free -m || true
+                '''
+                
+                def message = """
+❌ *Deployment Failed*
+📦 Project: ${env.JOB_NAME}
+🏷️ Version: ${env.BUILD_VERSION}
+🌿 Branch: ${env.BRANCH_NAME}
+⏱️ Duration: ${currentBuild.durationString}
+🔗 Build: ${env.BUILD_URL}
+"""
+                
+                // Uncomment if Slack plugin is available
+                // slackSend(channel: env.SLACK_CHANNEL, color: 'danger', message: message)
+                
+                echo "Failure notification: ${message}"
+            }
+        }
+        
+        unstable {
+            echo '⚠️ Build is unstable'
+            
+            script {
+                def message = """
+⚠️ *Build Unstable*
+📦 Project: ${env.JOB_NAME}
+🏷️ Version: ${env.BUILD_VERSION}
+🌿 Branch: ${env.BRANCH_NAME}
+⏱️ Duration: ${currentBuild.durationString}
+🔗 Build: ${env.BUILD_URL}
+"""
+                
+                echo "Unstable build notification: ${message}"
+            }
+        }
+    }
+}

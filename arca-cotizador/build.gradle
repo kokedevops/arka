@@ -30,4 +30,12 @@ jar {
 
 bootJar {
     enabled = true
+    archiveFileName = 'arca-cotizador.jar'
+    // Incluir todas las dependencias para ejecución independiente
+    launchScript()
+}
+
+// Configuración para despliegue en WildFly como JAR independiente
+springBoot {
+    buildInfo()
 }
