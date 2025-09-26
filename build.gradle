@@ -20,6 +20,7 @@ allprojects {
 // Configuración para submódulos
 subprojects {
 	apply plugin: 'java'
+	apply plugin: 'war'
 	apply plugin: 'org.springframework.boot'
 	apply plugin: 'io.spring.dependency-management'
 	apply plugin: 'jacoco'
@@ -659,5 +660,50 @@ task runReports {
 		   • HTML: build/reports/jacoco/aggregate/html/index.html
 		   • XML: build/reports/jacoco/aggregate/jacocoTestReport.xml
 		"""
+	}
+}
+
+// 🏗️ Configuración WAR común para todos los submódulos
+configure(subprojects.findAll { it.name in ['api-gateway', 'arca-cotizador', 'arca-gestor-solicitudes'] }) {
+	
+	// Configuración WAR
+	war {
+		enabled = true
+		archiveFileName = "${project.name}.war"
+	}
+
+	// Configuración Spring Boot WAR
+	bootWar {
+		enabled = true
+		archiveFileName = "${project.name}.war"
+		manifest {
+			attributes 'Main-Class': 'org.springframework.boot.loader.WarLauncher'
+		}
+	}
+
+	// Desabilitar JAR para evitar confusion
+	jar {
+		enabled = false
+	}
+
+	// Excluir Tomcat embedded para WildFly
+	configurations {
+		providedRuntime
+	}
+
+	dependencies {
+		providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
+	}
+
+	// Task personalizada para deployment en WildFly
+	task deployToWildfly {
+		group = 'deployment'
+		description = "Deploy ${project.name} WAR to WildFly"
+		dependsOn bootWar
+		
+		doLast {
+			println "📦 Deploying ${project.name}.war to WildFly..."
+			// La lógica de deployment se maneja en los scripts
+		}
 	}
 }

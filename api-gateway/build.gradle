@@ -14,20 +14,14 @@ dependencies {
     // Módulo de seguridad común - EXCLUIDO temporalmente para evitar conflictos
     // implementation project(':arka-security-common')
     
+    // Tomcat provided para WildFly
+    providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
+    
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
 }
 
-jar {
-    enabled = false
-}
-
-bootJar {
-    enabled = true
-    archiveFileName = 'api-gateway.jar'
-    // Incluir todas las dependencias para ejecución independiente
-    launchScript()
-}
+// Configuración WAR para WildFly - heredada del build.gradle principal
 
 // Configuración para despliegue en WildFly como JAR independiente
 springBoot {

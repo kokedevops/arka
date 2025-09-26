@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jboss-deployment-structure>
+    <deployment>
+        <!-- Permitir que Spring Boot maneje el logging -->
+        <exclude-subsystems>
+            <subsystem name="logging" />
+        </exclude-subsystems>
+        
+        <!-- Evitar conflictos con módulos de WildFly -->
+        <exclusions>
+            <module name="org.apache.commons.logging" />
+            <module name="org.apache.log4j" />
+            <module name="org.jboss.logging" />
+            <module name="org.jboss.logging.jul-to-slf4j-stub" />
+            <module name="org.slf4j" />
+            <module name="org.slf4j.impl" />
+        </exclusions>
+        
+        <!-- Dependencias específicas para Spring Boot -->
+        <dependencies>
+            <module name="javax.api" />
+            <module name="javax.annotation.api" />
+            <module name="javax.servlet.api" />
+            <module name="javax.servlet.jsp.api" />
+            <module name="javax.servlet.jstl.api" />
+        </dependencies>
+    </deployment>
+</jboss-deployment-structure>

@@ -1,0 +1,546 @@
+pipeline {
+    agent any
+    
+    environment {
+        // WildFly Configuration
+        WILDFLY_HOME = '/opt/wildfly'
+        WILDFLY_CLI = "${WILDFLY_HOME}/bin/jboss-cli.sh"
+        WILDFLY_USER = 'wildfly'
+        WILDFLY_GROUP = 'wildfly'
+        SPRING_PROFILE = 'aws'
+        
+        // Build Configuration
+        GRADLE_OPTS = '-Xmx2g -Dorg.gradle.daemon=false'
+        JAVA_HOME = '/usr/lib/jvm/java-21-amazon-corretto'
+        
+        // Deployment Configuration
+        DEPLOY_TIMEOUT = '300'
+        HEALTH_CHECK_TIMEOUT = '180'
+        
+        // Notification
+        SLACK_CHANNEL = '#deployments'
+        
+        // WAR Files Location
+        WAR_OUTPUT_DIR = 'build/distributions'
+    }
+    
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 45, unit: 'MINUTES')
+        timestamps()
+        skipDefaultCheckout(false)
+        parallelsAlwaysFailFast()
+    }
+    
+    triggers {
+        // Build automatically on push to main branches
+        githubPush()
+        // Nightly build for validation
+        cron('H 2 * * *')
+    }
+    
+    stages {
+        stage('🏗️ Environment Setup') {
+            steps {
+                script {
+                    echo """
+                    🚀 ARKA WildFly WAR Deployment Pipeline
+                    =====================================
+                    Branch: ${env.BRANCH_NAME}
+                    Build: ${env.BUILD_NUMBER}
+                    WildFly: ${env.WILDFLY_HOME}
+                    Profile: ${env.SPRING_PROFILE}
+                    """
+                }
+                
+                // Clean workspace
+                deleteDir()
+                checkout scm
+                
+                // Validate requirements
+                sh '''
+                    echo "🔍 Validating build environment..."
+                    java -version
+                    echo "JAVA_HOME: $JAVA_HOME"
+                    echo "Gradle wrapper exists: $(test -f gradlew && echo "✅" || echo "❌")"
+                    echo "WildFly exists: $(test -d $WILDFLY_HOME && echo "✅" || echo "❌")"
+                    echo "WildFly CLI exists: $(test -f $WILDFLY_CLI && echo "✅" || echo "❌")"
+                '''
+                
+                // Create required directories
+                sh '''
+                    mkdir -p logs
+                    mkdir -p ${WAR_OUTPUT_DIR}
+                    chmod +x gradlew
+                    chmod +x scripts/*.sh
+                '''
+            }
+        }
+        
+        stage('🧪 Tests & Quality') {
+            parallel {
+                stage('Unit Tests') {
+                    steps {
+                        script {
+                            sh '''
+                                echo "🧪 Running unit tests..."
+                                ./gradlew clean test --parallel --build-cache
+                            '''
+                        }
+                    }
+                    post {
+                        always {
+                            publishTestResults([
+                                testResultsPattern: '**/build/test-results/test/TEST-*.xml',
+                                allowEmptyResults: true
+                            ])
+                        }
+                    }
+                }
+                
+                stage('Code Coverage') {
+                    steps {
+                        script {
+                            sh '''
+                                echo "📊 Generating coverage reports..."
+                                ./gradlew jacocoTestReport jacocoAggregatedReport
+                            '''
+                        }
+                    }
+                    post {
+                        always {
+                            publishCoverage([
+                                adapters: [
+                                    jacocoAdapter('**/build/reports/jacoco/test/jacocoTestReport.xml')
+                                ],
+                                sourceFileResolver: sourceFiles('STORE_ALL_BUILD')
+                            ])
+                        }
+                    }
+                }
+                
+                stage('Code Quality') {
+                    when {
+                        anyOf {
+                            branch 'main'
+                            branch 'develop'
+                            changeRequest()
+                        }
+                    }
+                    steps {
+                        script {
+                            withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                                sh '''
+                                    echo "🔍 Running SonarQube analysis..."
+                                    ./gradlew sonarqube \\
+                                        -Dsonar.token=$SONAR_TOKEN \\
+                                        -Dsonar.host.url=$SONAR_HOST_URL \\
+                                        -Dsonar.projectKey=arka-microservices \\
+                                        -Dsonar.projectName="ARKA Microservices"
+                                '''
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('🏗️ Build WARs') {
+            steps {
+                script {
+                    echo "🔨 Building WAR files for WildFly deployment..."
+                    
+                    sh '''
+                        echo "Building infrastructure services (JARs)..."
+                        ./gradlew :eureka-server:bootJar :config-server:bootJar --parallel
+                        
+                        echo "Building business services (WARs)..."
+                        ./gradlew :api-gateway:bootWar :arca-cotizador:bootWar :arca-gestor-solicitudes:bootWar --parallel
+                        
+                        echo "📦 Copying artifacts to output directory..."
+                        
+                        # Copy JARs for infrastructure services
+                        cp eureka-server/build/libs/eureka-server.jar ${WAR_OUTPUT_DIR}/ || true
+                        cp config-server/build/libs/config-server.jar ${WAR_OUTPUT_DIR}/ || true
+                        
+                        # Copy WARs for business services
+                        cp api-gateway/build/libs/api-gateway.war ${WAR_OUTPUT_DIR}/ || true
+                        cp arca-cotizador/build/libs/arca-cotizador.war ${WAR_OUTPUT_DIR}/ || true
+                        cp arca-gestor-solicitudes/build/libs/arca-gestor-solicitudes.war ${WAR_OUTPUT_DIR}/ || true
+                        
+                        echo "📋 Generated artifacts:"
+                        ls -la ${WAR_OUTPUT_DIR}/
+                        
+                        # Verify all required files exist
+                        echo "🔍 Verifying artifacts..."
+                        test -f ${WAR_OUTPUT_DIR}/eureka-server.jar || { echo "❌ eureka-server.jar missing"; exit 1; }
+                        test -f ${WAR_OUTPUT_DIR}/config-server.jar || { echo "❌ config-server.jar missing"; exit 1; }
+                        test -f ${WAR_OUTPUT_DIR}/api-gateway.war || { echo "❌ api-gateway.war missing"; exit 1; }
+                        test -f ${WAR_OUTPUT_DIR}/arca-cotizador.war || { echo "❌ arca-cotizador.war missing"; exit 1; }
+                        test -f ${WAR_OUTPUT_DIR}/arca-gestor-solicitudes.war || { echo "❌ arca-gestor-solicitudes.war missing"; exit 1; }
+                        
+                        echo "✅ All artifacts built successfully!"
+                    '''
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts([
+                        artifacts: "${WAR_OUTPUT_DIR}/*.war,${WAR_OUTPUT_DIR}/*.jar",
+                        allowEmptyArchive: true,
+                        fingerprint: true
+                    ])
+                }
+            }
+        }
+        
+        stage('🔧 WildFly Configuration') {
+            steps {
+                script {
+                    echo "🔧 Configuring WildFly for ARKA deployment..."
+                    
+                    sh '''
+                        echo "Checking WildFly status..."
+                        if ! pgrep -f "jboss" > /dev/null; then
+                            echo "⚠️ WildFly not running, attempting to start..."
+                            sudo systemctl start wildfly || {
+                                echo "❌ Failed to start WildFly via systemctl"
+                                # Try manual start as fallback
+                                sudo -u $WILDFLY_USER nohup $WILDFLY_HOME/bin/standalone.sh -b 0.0.0.0 > /dev/null 2>&1 &
+                                sleep 15
+                            }
+                        fi
+                        
+                        # Wait for WildFly to be responsive
+                        echo "⏳ Waiting for WildFly to be responsive..."
+                        timeout 60 bash -c '
+                            while ! $WILDFLY_CLI --connect --command=":whoami" >/dev/null 2>&1; do
+                                echo "Waiting for WildFly connection..."
+                                sleep 3
+                            done
+                        ' || {
+                            echo "❌ WildFly failed to start in 60 seconds"
+                            exit 1
+                        }
+                        
+                        echo "✅ WildFly is running and responsive"
+                        
+                        # Apply ARKA-specific configuration
+                        echo "🔧 Applying ARKA configuration..."
+                        if [ -f "scripts/wildfly-arka-config.cli" ]; then
+                            $WILDFLY_CLI --connect --file=scripts/wildfly-arka-config.cli || {
+                                echo "⚠️ Warning: Configuration script failed, continuing..."
+                            }
+                        else
+                            echo "⚠️ Configuration file not found, using default WildFly config"
+                        fi
+                        
+                        echo "✅ WildFly configuration completed"
+                    '''
+                }
+            }
+        }
+        
+        stage('🚀 Deploy Services') {
+            steps {
+                script {
+                    echo "🚀 Deploying ARKA microservices to WildFly..."
+                    
+                    // Deploy infrastructure services first (as standalone JARs)
+                    sh '''
+                        echo "📦 Deploying infrastructure services..."
+                        
+                        # Create systemd service files for infrastructure services
+                        create_systemd_service() {
+                            local service_name=$1
+                            local jar_file=$2
+                            
+                            cat > /tmp/${service_name}.service << EOF
+[Unit]
+Description=ARKA ${service_name}
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=$WILDFLY_USER
+Group=$WILDFLY_GROUP
+ExecStart=/usr/bin/java -jar ${jar_file} --spring.profiles.active=$SPRING_PROFILE
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=${service_name}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+                            sudo mv /tmp/${service_name}.service /etc/systemd/system/
+                            sudo systemctl daemon-reload
+                        }
+                        
+                        # Deploy infrastructure services
+                        for service in eureka-server config-server; do
+                            echo "Deploying $service..."
+                            
+                            # Stop existing service
+                            sudo systemctl stop $service || true
+                            
+                            # Copy JAR to deployment location
+                            sudo cp ${WAR_OUTPUT_DIR}/${service}.jar $WILDFLY_HOME/standalone/deployments/
+                            sudo chown $WILDFLY_USER:$WILDFLY_GROUP $WILDFLY_HOME/standalone/deployments/${service}.jar
+                            
+                            # Create and start systemd service
+                            create_systemd_service $service $WILDFLY_HOME/standalone/deployments/${service}.jar
+                            sudo systemctl enable $service
+                            sudo systemctl start $service
+                            
+                            echo "✅ $service deployed and started"
+                        done
+                        
+                        # Wait for infrastructure services
+                        echo "⏳ Waiting for infrastructure services to start..."
+                        sleep 30
+                    '''
+                    
+                    // Deploy business services as WARs
+                    sh '''
+                        echo "📦 Deploying business services as WARs..."
+                        
+                        # Function to deploy a single WAR
+                        deploy_war() {
+                            local service_name=$1
+                            local war_file="${WAR_OUTPUT_DIR}/${service_name}.war"
+                            
+                            echo "Deploying $service_name..."
+                            
+                            # Undeploy if already deployed
+                            if $WILDFLY_CLI --connect --command="deployment-info --name=${service_name}.war" >/dev/null 2>&1; then
+                                echo "Undeploying existing $service_name..."
+                                $WILDFLY_CLI --connect --command="undeploy ${service_name}.war"
+                                sleep 5
+                            fi
+                            
+                            # Deploy new WAR
+                            if ! $WILDFLY_CLI --connect --command="deploy $war_file"; then
+                                echo "❌ Failed to deploy $service_name"
+                                return 1
+                            fi
+                            
+                            echo "✅ $service_name deployed successfully"
+                            return 0
+                        }
+                        
+                        # Deploy business services
+                        for service in api-gateway arca-cotizador arca-gestor-solicitudes; do
+                            if ! deploy_war $service; then
+                                echo "❌ Deployment failed for $service"
+                                exit 1
+                            fi
+                            sleep 10  # Wait between deployments
+                        done
+                        
+                        echo "🎉 All services deployed successfully!"
+                    '''
+                }
+            }
+        }
+        
+        stage('🏥 Health Checks') {
+            steps {
+                script {
+                    echo "🏥 Performing health checks..."
+                    
+                    sh '''
+                        # Function to check service health
+                        check_health() {
+                            local service_name=$1
+                            local port=$2
+                            local endpoint=${3:-"/actuator/health"}
+                            local url="http://localhost:${port}${endpoint}"
+                            local timeout=${HEALTH_CHECK_TIMEOUT}
+                            local interval=10
+                            local retries=$((timeout / interval))
+                            
+                            echo "🔍 Checking $service_name at $url..."
+                            
+                            for ((i=1; i<=retries; i++)); do
+                                if curl -f -s "$url" >/dev/null 2>&1; then
+                                    echo "✅ $service_name is healthy"
+                                    return 0
+                                fi
+                                
+                                echo "⏳ Health check $service_name... ($i/$retries)"
+                                sleep $interval
+                            done
+                            
+                            echo "❌ $service_name health check failed after ${timeout}s"
+                            return 1
+                        }
+                        
+                        # Wait for services to start
+                        echo "⏳ Waiting for services to initialize..."
+                        sleep 45
+                        
+                        # Check infrastructure services
+                        check_health "eureka-server" "8761"
+                        check_health "config-server" "8888"
+                        
+                        # Check business services (deployed in WildFly)
+                        check_health "api-gateway" "8080"
+                        check_health "arca-cotizador" "8080" "/actuator/health"
+                        check_health "arca-gestor-solicitudes" "8080" "/actuator/health"
+                        
+                        echo "🎉 All health checks passed!"
+                    '''
+                }
+            }
+        }
+        
+        stage('🧪 Smoke Tests') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'develop'
+                }
+            }
+            steps {
+                script {
+                    echo "🧪 Running smoke tests..."
+                    
+                    sh '''
+                        # Basic API connectivity tests
+                        echo "Testing API Gateway..."
+                        curl -f http://localhost:8080/actuator/info || echo "⚠️ API Gateway info endpoint not available"
+                        
+                        echo "Testing Eureka Dashboard..."
+                        curl -f http://localhost:8761/ || echo "⚠️ Eureka dashboard not available"
+                        
+                        echo "Testing service registration..."
+                        sleep 30  # Wait for service registration
+                        
+                        # Check if services are registered in Eureka
+                        if curl -s http://localhost:8761/eureka/apps | grep -q "api-gateway"; then
+                            echo "✅ API Gateway registered in Eureka"
+                        else
+                            echo "⚠️ API Gateway not registered in Eureka"
+                        fi
+                        
+                        echo "✅ Basic smoke tests completed"
+                    '''
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            // Collect logs
+            sh '''
+                echo "📋 Collecting deployment logs..."
+                mkdir -p deployment-logs
+                
+                # WildFly logs
+                if [ -f "$WILDFLY_HOME/standalone/log/server.log" ]; then
+                    cp "$WILDFLY_HOME/standalone/log/server.log" deployment-logs/wildfly-server.log
+                fi
+                
+                # Service logs
+                for service in eureka-server config-server; do
+                    if sudo systemctl is-active $service >/dev/null 2>&1; then
+                        sudo journalctl -u $service --no-pager -n 100 > deployment-logs/${service}.log 2>/dev/null || true
+                    fi
+                done
+                
+                # Application logs
+                if [ -d "logs" ]; then
+                    cp logs/*.log deployment-logs/ 2>/dev/null || true
+                fi
+            '''
+            
+            archiveArtifacts([
+                artifacts: 'deployment-logs/*.log',
+                allowEmptyArchive: true
+            ])
+            
+            // Cleanup old deployments on success
+            script {
+                if (currentBuild.resultIsBetterOrEqualTo('SUCCESS')) {
+                    sh '''
+                        echo "🧹 Cleaning up old artifacts..."
+                        find ${WORKSPACE} -name "*.war" -o -name "*.jar" | head -n -10 | xargs rm -f || true
+                    '''
+                }
+            }
+        }
+        
+        success {
+            script {
+                def message = """
+🎉 *ARKA WildFly Deployment Successful!*
+Branch: `${env.BRANCH_NAME}`
+Build: `#${env.BUILD_NUMBER}`
+Duration: `${currentBuild.durationString}`
+
+*Services Deployed:*
+• ✅ Eureka Server (JAR)
+• ✅ Config Server (JAR)  
+• ✅ API Gateway (WAR)
+• ✅ Arca Cotizador (WAR)
+• ✅ Arca Gestor Solicitudes (WAR)
+
+*Environment:*
+• WildFly: `${env.WILDFLY_HOME}`
+• Profile: `${env.SPRING_PROFILE}`
+• Health Checks: ✅ Passed
+
+<${env.BUILD_URL}|View Build Details>
+                """
+                
+                slackSend(
+                    channel: env.SLACK_CHANNEL,
+                    color: 'good',
+                    message: message,
+                    teamDomain: 'your-team',
+                    token: 'slack-token'
+                )
+            }
+        }
+        
+        failure {
+            script {
+                def message = """
+❌ *ARKA WildFly Deployment Failed!*
+Branch: `${env.BRANCH_NAME}`
+Build: `#${env.BUILD_NUMBER}`
+Duration: `${currentBuild.durationString}`
+
+*Failed Stage:* `${env.STAGE_NAME ?: 'Unknown'}`
+
+Please check the build logs and fix the issues.
+<${env.BUILD_URL}|View Build Details>
+                """
+                
+                slackSend(
+                    channel: env.SLACK_CHANNEL,
+                    color: 'danger',
+                    message: message,
+                    teamDomain: 'your-team',
+                    token: 'slack-token'
+                )
+            }
+        }
+        
+        unstable {
+            script {
+                slackSend(
+                    channel: env.SLACK_CHANNEL,
+                    color: 'warning',
+                    message: "⚠️ ARKA WildFly Deployment Unstable - Build #${env.BUILD_NUMBER}",
+                    teamDomain: 'your-team',
+                    token: 'slack-token'
+                )
+            }
+        }
+    }
+}

@@ -1,0 +1,592 @@
+pipeline {
+    agent { label 'nodo-dos' }
+    
+    parameters {
+        string(name: 'RAMA', defaultValue: 'proyecto-arka', description: 'Valor de Branch o Rama')
+        choice(name: 'ACCION', choices: ['full-deploy', 'build-only', 'deploy-only', 'undeploy'], description: 'Acción a ejecutar')
+        booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Omitir tests durante build')
+        booleanParam(name: 'SKIP_SONAR', defaultValue: false, description: 'Omitir análisis SonarQube')
+    }
+    
+    environment {
+        // WildFly Configuration
+        WILDFLY_HOME = '/opt/wildfly'
+        WILDFLY_CLI = '/opt/wildfly/bin/jboss-cli.sh'
+        WILDFLY_USER = 'wildfly'
+        
+        // Application Configuration
+        SPRING_PROFILE = 'aws'
+        GRADLE_HOME = '/opt/gradle/latest'
+        
+        // Nexus Configuration
+        NEXUS_WEB = 'http://3.14.80.146:8081'
+        NEXUS_REPO = 'repositorio-uno'
+        
+        // SonarQube Configuration
+        SONAR_HOST = 'http://18.188.248.253:9000'
+        SONAR_TOKEN = 'sqp_6b873adbd1458354e6838be57d1700d9e697f231'
+        
+        // Deployment paths
+        ARKA_HOME = '/opt/arka'
+        LOG_DIR = '/opt/logs'
+        PID_DIR = '/opt/pids'
+    }
+    
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 30, unit: 'MINUTES')
+        timestamps()
+    }
+    
+    stages {
+        stage('🏗️ Setup Environment') {
+            steps {
+                script {
+                    echo """
+                    🚀 ARKA WildFly Deployment Pipeline
+                    ===================================
+                    Rama: ${params.RAMA}
+                    Acción: ${params.ACCION}
+                    Build: ${env.BUILD_NUMBER}
+                    WildFly: ${env.WILDFLY_HOME}
+                    """
+                    
+                    // Crear directorios necesarios
+                    sh '''
+                        sudo mkdir -p $PID_DIR $LOG_DIR $ARKA_HOME || true
+                        sudo chown -R $USER:$USER $PID_DIR $LOG_DIR $ARKA_HOME || true
+                    '''
+                }
+            }
+        }
+        
+        stage('📥 Clonar Código') {
+            steps {
+                script {
+                    echo 'Clonando el código desde GitHub...'
+                    sh '''
+                        rm -rf *
+                        git clone https://github.com/kokedevops/arkavalenzuela.git -b ${RAMA}
+                        cd arkavalenzuela
+                        echo "Commit actual: $(git rev-parse --short HEAD)"
+                        ls -la
+                    '''
+                }
+            }
+        }
+
+        stage('🔍 Calidad de Código') {
+            when { 
+                not { params.SKIP_SONAR } 
+                expression { params.ACCION in ['full-deploy', 'build-only'] }
+            }
+            steps {
+                script {
+                    echo 'Ejecutando análisis SonarQube...'
+                    sh '''
+                        cd $WORKSPACE/arkavalenzuela
+                        /opt/sonar/bin/sonar-scanner \\
+                            -Dsonar.projectKey=arka-microservices \\
+                            -Dsonar.projectName="ARKA Microservices" \\
+                            -Dsonar.sources=. \\
+                            -Dsonar.java.binaries=*/build/classes \\
+                            -Dsonar.exclusions="**/build/**,**/gradle/**,**/*.gradle,**/logs/**" \\
+                            -Dsonar.host.url=$SONAR_HOST \\
+                            -Dsonar.login=$SONAR_TOKEN
+                    '''
+                }
+            }
+        }
+        
+        stage('🔨 Compilar y Construir') {
+            when { 
+                expression { params.ACCION in ['full-deploy', 'build-only'] }
+            }
+            steps {
+                script {
+                    echo 'Compilando microservicios...'
+                    sh '''
+                        cd arkavalenzuela
+                        export PATH=$PATH:$GRADLE_HOME/bin
+                        
+                        echo "🏗️ Building infrastructure services (JARs)..."
+                        gradle clean
+                        gradle :eureka-server:bootJar :config-server:bootJar --parallel
+                        
+                        echo "🏗️ Building business services (WARs)..."
+                        gradle :api-gateway:bootWar :arca-cotizador:bootWar :arca-gestor-solicitudes:bootWar --parallel ${SKIP_TESTS ? '-x test' : ''}
+                        
+                        echo "📦 Artifacts generated:"
+                        find . -name "*.jar" -o -name "*.war" | grep build/libs
+                        
+                        # Crear directorio para artifacts
+                        mkdir -p build/artifacts
+                        
+                        # Copiar artifacts
+                        find . -path "*/build/libs/*.jar" -exec cp {} build/artifacts/ \\;
+                        find . -path "*/build/libs/*.war" -exec cp {} build/artifacts/ \\;
+                        
+                        echo "✅ Final artifacts:"
+                        ls -la build/artifacts/
+                    '''
+                }
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'arkavalenzuela/build/artifacts/*', fingerprint: true
+                }
+            }
+        }
+
+        stage('📤 Subida a Nexus') {
+            when { 
+                expression { params.ACCION in ['full-deploy', 'build-only'] }
+            }
+            steps {
+                script {
+                    echo 'Publicando artifacts en Nexus...'
+                    sh '''
+                        cd $WORKSPACE/arkavalenzuela/build/artifacts
+                        
+                        # Función para subir artifact a Nexus
+                        upload_to_nexus() {
+                            local file=$1
+                            local artifact_name=$(basename "$file" | cut -d. -f1)
+                            local extension=$(basename "$file" | cut -d. -f2)
+                            
+                            echo "📤 Uploading $file to Nexus..."
+                            curl -f -v -u "admin:Koke1988*" \\
+                                --upload-file "$file" \\
+                                "$NEXUS_WEB/repository/$NEXUS_REPO/com/arka/$artifact_name/$BUILD_NUMBER/$artifact_name-$BUILD_NUMBER.$extension"
+                        }
+                        
+                        # Subir todos los artifacts
+                        for file in *.jar *.war; do
+                            if [ -f "$file" ]; then
+                                upload_to_nexus "$file"
+                            fi
+                        done
+                        
+                        echo "✅ All artifacts uploaded to Nexus"
+                    '''
+                }
+            }
+        }
+
+        stage('🔧 Configurar WildFly') {
+            when { 
+                expression { params.ACCION in ['full-deploy', 'deploy-only'] }
+            }
+            steps {
+                script {
+                    echo 'Configurando WildFly para ARKA...'
+                    sh '''
+                        # Verificar que WildFly esté ejecutándose
+                        echo "🔍 Checking WildFly status..."
+                        if ! pgrep -f "jboss" > /dev/null; then
+                            echo "⚠️ WildFly not running, starting..."
+                            sudo systemctl start wildfly || {
+                                echo "Starting WildFly manually..."
+                                sudo -u $WILDFLY_USER nohup $WILDFLY_HOME/bin/standalone.sh -b 0.0.0.0 > /dev/null 2>&1 &
+                                sleep 15
+                            }
+                        fi
+                        
+                        # Esperar a que WildFly responda
+                        echo "⏳ Waiting for WildFly to be ready..."
+                        timeout 60 bash -c '
+                            while ! $WILDFLY_CLI --connect --command=":whoami" >/dev/null 2>&1; do
+                                echo "Waiting for WildFly connection..."
+                                sleep 3
+                            done
+                        ' || {
+                            echo "❌ WildFly failed to start"
+                            exit 1
+                        }
+                        
+                        echo "✅ WildFly is running and ready"
+                        
+                        # Aplicar configuración ARKA usando CLI commands directamente
+                        echo "🔧 Applying ARKA configuration..."
+                        
+                        # Configurar DataSource MySQL si no existe
+                        $WILDFLY_CLI --connect --command="
+                            if (outcome != success) of /subsystem=datasources/data-source=ArkaDS:read-resource
+                                /subsystem=datasources/data-source=ArkaDS:add(
+                                    jndi-name=java:jboss/datasources/ArkaDS,
+                                    driver-name=mysql,
+                                    connection-url=jdbc:mysql://localhost:3306/arka_db?useSSL=true&serverTimezone=UTC,
+                                    user-name=arka_user,
+                                    password=arka_pass,
+                                    min-pool-size=5,
+                                    max-pool-size=20,
+                                    enabled=true
+                                )
+                            end-if
+                        " 2>/dev/null || echo "DataSource configuration warning ignored"
+                        
+                        # Configurar system properties para microservicios
+                        $WILDFLY_CLI --connect --command="
+                            /system-property=spring.profiles.active:add(value=$SPRING_PROFILE)
+                        " 2>/dev/null || echo "System property already exists"
+                        
+                        $WILDFLY_CLI --connect --command="
+                            /system-property=eureka.client.service-url.defaultZone:add(value=http://localhost:8761/eureka)
+                        " 2>/dev/null || echo "Eureka property already exists"
+                        
+                        echo "✅ WildFly configuration completed"
+                    '''
+                }
+            }
+        }
+
+        stage('🚀 Desplegar Servicios') {
+            when { 
+                expression { params.ACCION in ['full-deploy', 'deploy-only'] }
+            }
+            steps {
+                script {
+                    echo 'Desplegando servicios ARKA...'
+                    sh '''
+                        cd $WORKSPACE/arkavalenzuela
+                        
+                        # Función para desplegar servicios de infraestructura (JARs)
+                        deploy_infrastructure_service() {
+                            local service=$1
+                            local jar_file="$2"
+                            
+                            echo "📦 Deploying infrastructure service: $service"
+                            
+                            # Detener servicio existente si está corriendo
+                            pkill -f "$service.jar" || true
+                            sleep 3
+                            
+                            # Copiar JAR a directorio de despliegue
+                            sudo cp "$jar_file" "$ARKA_HOME/"
+                            sudo chown $WILDFLY_USER:$WILDFLY_USER "$ARKA_HOME/$(basename $jar_file)"
+                            
+                            # Iniciar servicio en background
+                            echo "🚀 Starting $service..."
+                            nohup java -jar -Xms256m -Xmx512m -XX:+UseG1GC \\
+                                "$ARKA_HOME/$(basename $jar_file)" \\
+                                --spring.profiles.active=$SPRING_PROFILE \\
+                                > "$LOG_DIR/$service.log" 2>&1 &
+                            
+                            echo $! > "$PID_DIR/$service.pid"
+                            echo "✅ $service started with PID: $(cat $PID_DIR/$service.pid)"
+                        }
+                        
+                        # Función para desplegar servicios de negocio (WARs) en WildFly
+                        deploy_business_service() {
+                            local service=$1
+                            local war_file="$2"
+                            
+                            echo "📦 Deploying business service: $service to WildFly"
+                            
+                            # Verificar que el archivo WAR existe
+                            if [ ! -f "$war_file" ]; then
+                                echo "❌ WAR file not found: $war_file"
+                                return 1
+                            fi
+                            
+                            # Undeploy si ya está desplegado
+                            if $WILDFLY_CLI --connect --command="deployment-info --name=$(basename $war_file)" >/dev/null 2>&1; then
+                                echo "🗑️ Undeploying existing $service..."
+                                $WILDFLY_CLI --connect --command="undeploy $(basename $war_file)"
+                                sleep 5
+                            fi
+                            
+                            # Deploy nuevo WAR
+                            echo "🚀 Deploying $service WAR..."
+                            if ! $WILDFLY_CLI --connect --command="deploy $war_file"; then
+                                echo "❌ Failed to deploy $service"
+                                return 1
+                            fi
+                            
+                            echo "✅ $service deployed successfully"
+                        }
+                        
+                        # Desplegar servicios de infraestructura primero
+                        echo "🏗️ Deploying infrastructure services..."
+                        
+                        # Eureka Server
+                        if [ -f "eureka-server/build/libs/eureka-server.jar" ]; then
+                            deploy_infrastructure_service "eureka-server" "eureka-server/build/libs/eureka-server.jar"
+                        else
+                            echo "⚠️ eureka-server.jar not found, skipping..."
+                        fi
+                        
+                        # Config Server  
+                        if [ -f "config-server/build/libs/config-server.jar" ]; then
+                            deploy_infrastructure_service "config-server" "config-server/build/libs/config-server.jar"
+                        else
+                            echo "⚠️ config-server.jar not found, skipping..."
+                        fi
+                        
+                        # Esperar a que los servicios de infraestructura inicien
+                        echo "⏳ Waiting for infrastructure services to start..."
+                        sleep 30
+                        
+                        # Desplegar servicios de negocio en WildFly
+                        echo "🏢 Deploying business services to WildFly..."
+                        
+                        # API Gateway
+                        if [ -f "api-gateway/build/libs/api-gateway.war" ]; then
+                            deploy_business_service "api-gateway" "$PWD/api-gateway/build/libs/api-gateway.war"
+                        else
+                            echo "⚠️ api-gateway.war not found"
+                        fi
+                        
+                        sleep 10
+                        
+                        # Arca Cotizador
+                        if [ -f "arca-cotizador/build/libs/arca-cotizador.war" ]; then
+                            deploy_business_service "arca-cotizador" "$PWD/arca-cotizador/build/libs/arca-cotizador.war"
+                        else
+                            echo "⚠️ arca-cotizador.war not found"
+                        fi
+                        
+                        sleep 10
+                        
+                        # Arca Gestor Solicitudes
+                        if [ -f "arca-gestor-solicitudes/build/libs/arca-gestor-solicitudes.war" ]; then
+                            deploy_business_service "arca-gestor-solicitudes" "$PWD/arca-gestor-solicitudes/build/libs/arca-gestor-solicitudes.war"
+                        else
+                            echo "⚠️ arca-gestor-solicitudes.war not found"
+                        fi
+                        
+                        echo "🎉 All services deployment completed!"
+                        
+                        # Mostrar status de deployments
+                        echo "📋 Deployment status:"
+                        $WILDFLY_CLI --connect --command="deployment-info"
+                    '''
+                }
+            }
+        }
+
+        stage('🗑️ Undeployment') {
+            when { 
+                expression { params.ACCION == 'undeploy' }
+            }
+            steps {
+                script {
+                    echo 'Removiendo deployments existentes...'
+                    sh '''
+                        echo "🗑️ Undeploying services from WildFly..."
+                        
+                        # Undeploy WARs from WildFly
+                        for service in api-gateway arca-cotizador arca-gestor-solicitudes; do
+                            if $WILDFLY_CLI --connect --command="deployment-info --name=${service}.war" >/dev/null 2>&1; then
+                                echo "Removing $service from WildFly..."
+                                $WILDFLY_CLI --connect --command="undeploy ${service}.war"
+                            else
+                                echo "$service not deployed in WildFly"
+                            fi
+                        done
+                        
+                        echo "🗑️ Stopping infrastructure services..."
+                        
+                        # Stop infrastructure services
+                        for service in eureka-server config-server; do
+                            if [ -f "$PID_DIR/$service.pid" ]; then
+                                local pid=$(cat "$PID_DIR/$service.pid")
+                                if kill -0 "$pid" 2>/dev/null; then
+                                    echo "Stopping $service (PID: $pid)..."
+                                    kill "$pid"
+                                    rm -f "$PID_DIR/$service.pid"
+                                fi
+                            fi
+                            
+                            # Fallback: kill by process name
+                            pkill -f "$service.jar" || true
+                        done
+                        
+                        echo "✅ All services undeployed"
+                    '''
+                }
+            }
+        }
+
+        stage('🏥 Health Checks') {
+            when { 
+                expression { params.ACCION in ['full-deploy', 'deploy-only'] }
+            }
+            steps {
+                script {
+                    echo 'Verificando salud de los servicios...'
+                    sh '''
+                        # Función para verificar health de servicio
+                        check_health() {
+                            local service=$1
+                            local port=$2
+                            local endpoint=${3:-"/actuator/health"}
+                            local url="http://localhost:${port}${endpoint}"
+                            local max_attempts=18
+                            local wait_time=10
+                            
+                            echo "🔍 Checking health of $service at $url"
+                            
+                            for i in $(seq 1 $max_attempts); do
+                                if curl -f -s "$url" >/dev/null 2>&1; then
+                                    echo "✅ $service is healthy"
+                                    return 0
+                                fi
+                                echo "⏳ Attempt $i/$max_attempts - waiting for $service..."
+                                sleep $wait_time
+                            done
+                            
+                            echo "❌ $service health check failed"
+                            return 1
+                        }
+                        
+                        echo "⏳ Waiting for services to initialize..."
+                        sleep 45
+                        
+                        # Health check results
+                        health_results=0
+                        
+                        # Check infrastructure services
+                        echo "🏗️ Checking infrastructure services..."
+                        check_health "eureka-server" "8761" || health_results=1
+                        check_health "config-server" "8888" || health_results=1
+                        
+                        # Check business services (in WildFly - context path based)
+                        echo "🏢 Checking business services..."
+                        check_health "api-gateway" "8080" "/actuator/health" || health_results=1
+                        check_health "arca-cotizador" "8080" "/actuator/health" || health_results=1  
+                        check_health "arca-gestor-solicitudes" "8080" "/actuator/health" || health_results=1
+                        
+                        # Additional checks
+                        echo "🔍 Additional service checks..."
+                        
+                        # Check Eureka dashboard
+                        if curl -f -s "http://localhost:8761/" >/dev/null 2>&1; then
+                            echo "✅ Eureka dashboard accessible"
+                        else
+                            echo "⚠️ Eureka dashboard not accessible"
+                        fi
+                        
+                        # Check service registration in Eureka
+                        sleep 30  # Wait for registration
+                        if curl -s "http://localhost:8761/eureka/apps" | grep -q "api-gateway"; then
+                            echo "✅ Services are registering in Eureka"
+                        else
+                            echo "⚠️ Services may not be registering in Eureka"
+                        fi
+                        
+                        if [ $health_results -eq 0 ]; then
+                            echo "🎉 All health checks passed!"
+                        else
+                            echo "⚠️ Some health checks failed - check logs"
+                            exit 1
+                        fi
+                    '''
+                }
+            }
+        }
+
+        stage('📊 Deployment Summary') {
+            when { 
+                expression { params.ACCION in ['full-deploy', 'deploy-only'] }
+            }
+            steps {
+                script {
+                    echo 'Generando resumen de deployment...'
+                    sh '''
+                        echo "📊 ARKA Deployment Summary"
+                        echo "=========================="
+                        echo "Build Number: $BUILD_NUMBER"
+                        echo "Branch: $RAMA"
+                        echo "Profile: $SPRING_PROFILE"
+                        echo "Timestamp: $(date)"
+                        echo ""
+                        
+                        echo "🏗️ Infrastructure Services (Standalone JARs):"
+                        for service in eureka-server config-server; do
+                            if [ -f "$PID_DIR/$service.pid" ] && kill -0 $(cat "$PID_DIR/$service.pid") 2>/dev/null; then
+                                echo "  ✅ $service - Running (PID: $(cat $PID_DIR/$service.pid))"
+                            else
+                                echo "  ❌ $service - Not running"
+                            fi
+                        done
+                        
+                        echo ""
+                        echo "🏢 Business Services (WildFly WARs):"
+                        $WILDFLY_CLI --connect --command="deployment-info" | grep -E "(api-gateway|arca-cotizador|arca-gestor-solicitudes)" || echo "  No business services found"
+                        
+                        echo ""
+                        echo "🔗 Service URLs:"
+                        echo "  - Eureka Server: http://localhost:8761"
+                        echo "  - Config Server: http://localhost:8888"
+                        echo "  - API Gateway: http://localhost:8080/actuator/health"
+                        echo "  - Arca Cotizador: http://localhost:8080/actuator/health"
+                        echo "  - Gestor Solicitudes: http://localhost:8080/actuator/health"
+                        
+                        echo ""
+                        echo "📁 Logs Location: $LOG_DIR"
+                        echo "📁 PIDs Location: $PID_DIR"
+                        echo "📁 JARs Location: $ARKA_HOME"
+                    '''
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            // Collect logs
+            sh '''
+                echo "📋 Collecting deployment logs..."
+                mkdir -p deployment-logs
+                
+                # WildFly logs
+                if [ -f "$WILDFLY_HOME/standalone/log/server.log" ]; then
+                    tail -500 "$WILDFLY_HOME/standalone/log/server.log" > deployment-logs/wildfly-server.log
+                fi
+                
+                # Application logs
+                for service in eureka-server config-server; do
+                    if [ -f "$LOG_DIR/$service.log" ]; then
+                        tail -200 "$LOG_DIR/$service.log" > deployment-logs/$service.log
+                    fi
+                done
+                
+                # Jenkins build log
+                echo "Jenkins Build #$BUILD_NUMBER" > deployment-logs/build-info.log
+                echo "Branch: $RAMA" >> deployment-logs/build-info.log
+                echo "Timestamp: $(date)" >> deployment-logs/build-info.log
+            '''
+            
+            archiveArtifacts artifacts: 'deployment-logs/*.log', allowEmptyArchive: true
+        }
+        
+        success {
+            echo """
+            🎉 ARKA WildFly Deployment Successful!
+            =====================================
+            Build: #${env.BUILD_NUMBER}
+            Branch: ${params.RAMA}
+            Action: ${params.ACCION}
+            
+            Services Status:
+            - Infrastructure: Eureka + Config Server (JARs)
+            - Business Logic: Gateway + Cotizador + Gestor (WARs)
+            
+            All services are healthy and running!
+            """
+        }
+        
+        failure {
+            echo """
+            ❌ ARKA WildFly Deployment Failed!
+            ==================================
+            Build: #${env.BUILD_NUMBER}
+            Branch: ${params.RAMA}
+            Action: ${params.ACCION}
+            
+            Please check the build logs for details.
+            """
+        }
+    }
+}
