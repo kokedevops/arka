@@ -11,6 +11,9 @@ pipeline {
         // WildFly Configuration
         WILDFLY_HOME = '/opt/wildfly'
         WILDFLY_CLI = '/opt/wildfly/bin/jboss-cli.sh'
+        WILDFLY_CONTROLLER = 'remote+http://18.117.120.169:9990'
+        WILDFLY_USER = 'arka'
+    WILDFLY_PASSWORD = 'Koke1988*'
         
         // Application Configuration
         SPRING_PROFILE = 'aws'
@@ -156,27 +159,31 @@ pipeline {
                     sh '''
                         cd arkavalenzuela
                         
-                        # Verificar WildFly
-                        echo "🔍 Verificando WildFly..."
-                        if ! pgrep -f "jboss" > /dev/null; then
-                            echo "⚠️ WildFly no está ejecutándose, iniciando..."
-                            sudo systemctl start wildfly
-                            sleep 15
-                        fi
-                        
-                        # Esperar conexión WildFly
-                        timeout 60 bash -c '
-                            while ! $WILDFLY_CLI --connect --command=":whoami" >/dev/null 2>&1; do
-                                echo "Esperando conexión WildFly..."
-                                sleep 3
-                            done
-                        '
-                        
+                        CONTROLLER="${WILDFLY_CONTROLLER:-remote+http://18.117.120.169:9990}"
+                        MANAGEMENT_USER="${WILDFLY_USER:-arka}"
+                        MANAGEMENT_PASS="${WILDFLY_PASSWORD:-Koke1988*}"
+
+                        # Verificar conexión remota a WildFly
+                        echo "🔍 Verificando WildFly (${CONTROLLER})..."
+                        ATTEMPTS=0
+                        until "$WILDFLY_CLI" --connect --controller="$CONTROLLER" --user="$MANAGEMENT_USER" --password="$MANAGEMENT_PASS" --command=":whoami" >/dev/null 2>&1; do
+                            ATTEMPTS=$((ATTEMPTS + 1))
+                            if [ $ATTEMPTS -ge 20 ]; then
+                                echo "❌ No se pudo establecer conexión con WildFly en $CONTROLLER"
+                                exit 1
+                            fi
+                            echo "Esperando conexión WildFly..."
+                            sleep 3
+                        done
                         echo "✅ WildFly conectado"
+
+                        run_cli() {
+                            "$WILDFLY_CLI" --connect --controller="$CONTROLLER" --user="$MANAGEMENT_USER" --password="$MANAGEMENT_PASS" "$@"
+                        }
                         
                         # Configurar DataSource para AWS
                         echo "🔧 Configurando DataSource para AWS..."
-                        $WILDFLY_CLI --connect --command="
+                        run_cli --command="
                             if (outcome != success) of /subsystem=datasources/data-source=ArkaDS:read-resource
                                 /subsystem=datasources/data-source=ArkaDS:add(
                                     jndi-name=java:jboss/datasources/ArkaDS,
@@ -192,7 +199,7 @@ pipeline {
                         " 2>/dev/null || echo "DataSource ya existe"
                         
                         # System properties para AWS
-                        $WILDFLY_CLI --connect --command="
+                        run_cli --command="
                             /system-property=spring.profiles.active:add(value=aws)
                         " 2>/dev/null || echo "Property ya existe"
                         
@@ -252,11 +259,11 @@ pipeline {
                                 echo "📦 Desplegando $service..."
                                 
                                 # Undeploy si existe
-                                $WILDFLY_CLI --connect --command="undeploy ${service}.war" 2>/dev/null || echo "$service no estaba desplegado"
+                                run_cli --command="undeploy ${service}.war" 2>/dev/null || echo "$service no estaba desplegado"
                                 sleep 3
                                 
                                 # Deploy nuevo WAR
-                                if $WILDFLY_CLI --connect --command="deploy $PWD/$war_file"; then
+                                if run_cli --command="deploy $PWD/$war_file"; then
                                     echo "✅ $service desplegado exitosamente"
                                 else
                                     echo "❌ Error desplegando $service"
@@ -272,7 +279,7 @@ pipeline {
                         
                         # Mostrar status
                         echo "📋 Status de deployments:"
-                        $WILDFLY_CLI --connect --command="deployment-info"
+                        run_cli --command="deployment-info"
                     '''
                 }
             }

@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: arca-cotizador
+  profiles:
+    active: dev
+  cloud:
+    config:
+      uri: http://localhost:8888
+      # Para desarrollo local, comentar la línea de arriba y descomentar la de abajo:
+      # uri: http://127.0.0.1:9090
+      username: config-client
+      password: arka-client-2025
+      fail-fast: false
+      retry:
+        initial-interval: 1000
+        max-attempts: 6
+        max-interval: 2000
+        multiplier: 1.1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: refresh,env,health,info

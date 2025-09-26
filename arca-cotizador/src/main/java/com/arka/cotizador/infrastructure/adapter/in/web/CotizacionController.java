@@ -5,8 +5,8 @@ import com.arka.cotizador.domain.model.CotizacionRequest;
 import com.arka.cotizador.domain.model.CotizacionResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/api/cotizaciones")
@@ -22,17 +22,17 @@ public class CotizacionController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Mono<CotizacionResponse> generarCotizacion(@RequestBody CotizacionRequest request) {
+    public CotizacionResponse generarCotizacion(@RequestBody CotizacionRequest request) {
         return cotizacionService.generarCotizacion(request);
     }
 
     @GetMapping("/{cotizacionId}")
-    public Mono<CotizacionResponse> obtenerCotizacion(@PathVariable String cotizacionId) {
+    public CotizacionResponse obtenerCotizacion(@PathVariable String cotizacionId) {
         return cotizacionService.obtenerCotizacion(cotizacionId);
     }
 
     @GetMapping("/health")
-    public Mono<String> health() {
-        return Mono.just("Arca Cotizador está funcionando correctamente");
+    public ResponseEntity<String> health() {
+        return ResponseEntity.ok("Arca Cotizador está funcionando correctamente");
     }
 }

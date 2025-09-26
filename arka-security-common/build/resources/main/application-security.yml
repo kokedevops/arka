@@ -1,0 +1,23 @@
+# Configuración de seguridad para ARKA Security
+spring:
+  security:
+    jwt:
+      secret: ${ARKA_JWT_SECRET:ArkaSecretKeyForJWTTokenGenerationAndValidation2024!}
+      expiration: ${ARKA_JWT_EXPIRATION:86400}  # 24 horas
+      refresh-expiration: ${ARKA_REFRESH_EXPIRATION:604800}  # 7 días
+
+# Configuración H2 para desarrollo
+  r2dbc:
+    url: r2dbc:h2:mem:///arkasecurity?options=DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: password
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+# Configuración de logging
+logging:
+  level:
+    com.arka.security: DEBUG
+    org.springframework.security: DEBUG
