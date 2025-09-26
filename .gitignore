@@ -1,0 +1,71 @@
+# Build artifacts
+build/
+bin/
+*.jar
+*.war
+*.class
+target/
+out/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.swp
+*.swo
+*~
+#*.txt
+
+# Gradle files
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# Spring Boot
+application-*.properties
+!application.properties
+!application.yml
+!application-*.yml
+
+# Docker volumes
+volumes/
+
+# Jenkins logs
+*.txt
+.pids/
+logs/
+
+# Environment variables
+.env
+.env.local
+
+# Node modules (if any frontend)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Maven (if used)
+.mvn/
+mvnw
+mvnw.cmd
+
+# Test results
+TEST-*.xml
+test-results/
+coverage/
