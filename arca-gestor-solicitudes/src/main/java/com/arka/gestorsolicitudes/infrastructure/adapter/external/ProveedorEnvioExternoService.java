@@ -6,6 +6,9 @@ import io.github.resilience4j.retry.annotation.Retry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
@@ -42,11 +45,16 @@ public class ProveedorEnvioExternoService {
         logger.info("Llamando al proveedor externo para calcular envío de {} a {} con peso {}", origen, destino, peso);
 
         try {
-            ResponseEntity<Map<String, Object>> responseEntity = restTemplate.postForEntity(
+                HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(
+                    Map.of("origen", origen, "destino", destino, "peso", peso)
+                );
+
+                ResponseEntity<Map<String, Object>> responseEntity = restTemplate.exchange(
                     "/api/calcular-envio",
-                    Map.of("origen", origen, "destino", destino, "peso", peso),
-                    Map.class
-            );
+                    HttpMethod.POST,
+                    requestEntity,
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+                );
 
             Map<String, Object> response = responseEntity.getBody();
             if (response == null) {
