@@ -16,7 +16,6 @@ bootJar {
     enabled = true
     archiveFileName = 'hello-world-service.jar'
     // Incluir todas las dependencias para ejecución independiente
-    launchScript()
 }
 
 // Configuración para despliegue en WildFly como JAR independiente

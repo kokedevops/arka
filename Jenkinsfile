@@ -136,6 +136,7 @@ pipeline {
                             if [ -f "$jar_file" ]; then
                                 echo "📤 Subiendo ${service}.jar"
                                 curl -f -v -u "admin:Koke1988*" \\
+                                    -H "Content-Type: application/java-archive" \\
                                     --upload-file "$jar_file" \\
                                     "$NEXUS_WEB/repository/$NEXUS_REPO/com/arka/$service/$BUILD_NUMBER/${service}-$BUILD_NUMBER.jar"
                             fi

@@ -17,8 +17,6 @@ jar {
 bootJar {
     enabled = true
     archiveFileName = 'eureka-server.jar'
-    // Incluir todas las dependencias para ejecución independiente
-    launchScript()
 }
 
 // Configuración para despliegue en WildFly como JAR independiente

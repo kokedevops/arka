@@ -48,18 +48,6 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-// Configuración para JAR ejecutable en WildFly
-jar {
-    enabled = false
-}
-
-bootJar {
-    enabled = true
-    archiveFileName = 'config-server.jar'
-    // Incluir todas las dependencias para ejecución independiente
-    launchScript()
-}
-
 // Configuración para despliegue en WildFly como JAR independiente
 springBoot {
     buildInfo()
@@ -75,7 +63,7 @@ tasks.named('test') {
     useJUnitPlatform()
 }
 
-// Bootjar configuration
+// BootJar configuration
 jar {
     enabled = false
     archiveClassifier = ''
@@ -84,5 +72,6 @@ jar {
 bootJar {
     enabled = true
     archiveClassifier = ''
+    archiveFileName = 'config-server.jar'
     mainClass = 'com.arkavalenzuela.configserver.ConfigServerApplication'
 }
