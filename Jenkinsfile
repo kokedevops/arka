@@ -43,6 +43,11 @@ pipeline {
                         git clone https://github.com/kokedevops/arkavalenzuela.git -b ${RAMA}
                         cd arkavalenzuela
                         echo "Commit actual: $(git rev-parse --short HEAD)"
+                        
+                        # CRÍTICO: Eliminar ServletInitializer problemático de API Gateway
+                        echo "🔧 Eliminando ServletInitializer de API Gateway (WebFlux no lo necesita)..."
+                        rm -f api-gateway/src/main/java/com/arka/gateway/ServletInitializer.java
+                        
                         ls -la
                     '''
                 }
@@ -57,7 +62,7 @@ pipeline {
                 script {
                     echo 'Ejecutando análisis SonarQube...'
                     sh '''
-                        cd $WORKSPACE/arkavalenzuela
+                        cd arkavalenzuela
                         /opt/sonar/bin/sonar-scanner \\
                             -Dsonar.projectKey=arka-microservices \\
                             -Dsonar.projectName="ARKA Microservices" \\
@@ -86,9 +91,11 @@ pipeline {
                         gradle clean
                         
                         # Build infrastructure services (JARs)
+                        echo "📦 Construyendo servicios de infraestructura (JARs)..."
                         gradle :eureka-server:bootJar :config-server:bootJar :api-gateway:bootJar --parallel
                         
                         # Build business services (WARs) 
+                        echo "📦 Construyendo servicios de negocio (WARs)..."
                         if [ "$SKIP_TESTS" = "true" ]; then
                             gradle :arca-cotizador:bootWar :arca-gestor-solicitudes:bootWar --parallel -x test
                         else
@@ -138,7 +145,7 @@ pipeline {
             }
         }
 
-        stage('� Desplegar en WildFly') {
+        stage('🚀 Desplegar en WildFly') {
             when { 
                 expression { params.ACCION in ['full-deploy', 'deploy-only'] }
             }
@@ -188,15 +195,22 @@ pipeline {
                             /system-property=spring.profiles.active:add(value=aws)
                         " 2>/dev/null || echo "Property ya existe"
                         
+                        # Detener servicios previos
+                        echo "🛑 Deteniendo servicios previos..."
+                        pkill -f "config-server.jar" || true
+                        pkill -f "eureka-server.jar" || true  
+                        pkill -f "api-gateway.jar" || true
+                        sleep 5
+                        
+                        # Crear directorio de despliegue
+                        mkdir -p $ARKA_HOME
+                        
                         # Desplegar servicios de infraestructura (JARs)
                         echo "📦 Desplegando servicios de infraestructura..."
-                        mkdir -p $ARKA_HOME
                         
                         # Config Server
                         if [ -f "config-server/build/libs/config-server.jar" ]; then
                             echo "🚀 Iniciando Config Server..."
-                            pkill -f "config-server.jar" || true
-                            sleep 3
                             cp config-server/build/libs/config-server.jar $ARKA_HOME/
                             nohup java -jar -Xms256m -Xmx512m $ARKA_HOME/config-server.jar \\
                                 --spring.profiles.active=aws \\
@@ -208,8 +222,6 @@ pipeline {
                         # Eureka Server
                         if [ -f "eureka-server/build/libs/eureka-server.jar" ]; then
                             echo "🚀 Iniciando Eureka Server..."
-                            pkill -f "eureka-server.jar" || true
-                            sleep 3
                             cp eureka-server/build/libs/eureka-server.jar $ARKA_HOME/
                             nohup java -jar -Xms256m -Xmx512m $ARKA_HOME/eureka-server.jar \\
                                 --spring.profiles.active=aws \\
@@ -221,8 +233,6 @@ pipeline {
                         # API Gateway (JAR - WebFlux no soporta WAR)
                         if [ -f "api-gateway/build/libs/api-gateway.jar" ]; then
                             echo "🚀 Iniciando API Gateway..."
-                            pkill -f "api-gateway.jar" || true
-                            sleep 3
                             cp api-gateway/build/libs/api-gateway.jar $ARKA_HOME/
                             nohup java -jar -Xms512m -Xmx1024m $ARKA_HOME/api-gateway.jar \\
                                 --spring.profiles.active=aws \\
@@ -262,172 +272,6 @@ pipeline {
                         # Mostrar status
                         echo "📋 Status de deployments:"
                         $WILDFLY_CLI --connect --command="deployment-info"
-                    '''
-                }
-            }
-        }
-
-        stage('🚀 Desplegar Servicios') {
-            when { 
-                expression { params.ACCION in ['full-deploy', 'deploy-only'] }
-            }
-            steps {
-                script {
-                    echo 'Desplegando servicios ARKA...'
-                    sh '''
-                        cd $WORKSPACE/arkavalenzuela
-                        
-                        # Función para desplegar servicios de infraestructura (JARs)
-                        deploy_infrastructure_service() {
-                            local service=$1
-                            local jar_file="$2"
-                            
-                            echo "📦 Deploying infrastructure service: $service"
-                            
-                            # Detener servicio existente si está corriendo
-                            pkill -f "$service.jar" || true
-                            sleep 3
-                            
-                            # Copiar JAR a directorio de despliegue
-                            sudo cp "$jar_file" "$ARKA_HOME/"
-                            sudo chown $WILDFLY_USER:$WILDFLY_USER "$ARKA_HOME/$(basename $jar_file)"
-                            
-                            # Iniciar servicio en background
-                            echo "🚀 Starting $service..."
-                            nohup java -jar -Xms256m -Xmx512m -XX:+UseG1GC \\
-                                "$ARKA_HOME/$(basename $jar_file)" \\
-                                --spring.profiles.active=$SPRING_PROFILE \\
-                                > "$LOG_DIR/$service.log" 2>&1 &
-                            
-                            echo $! > "$PID_DIR/$service.pid"
-                            echo "✅ $service started with PID: $(cat $PID_DIR/$service.pid)"
-                        }
-                        
-                        # Función para desplegar servicios de negocio (WARs) en WildFly
-                        deploy_business_service() {
-                            local service=$1
-                            local war_file="$2"
-                            
-                            echo "📦 Deploying business service: $service to WildFly"
-                            
-                            # Verificar que el archivo WAR existe
-                            if [ ! -f "$war_file" ]; then
-                                echo "❌ WAR file not found: $war_file"
-                                return 1
-                            fi
-                            
-                            # Undeploy si ya está desplegado
-                            if $WILDFLY_CLI --connect --command="deployment-info --name=$(basename $war_file)" >/dev/null 2>&1; then
-                                echo "🗑️ Undeploying existing $service..."
-                                $WILDFLY_CLI --connect --command="undeploy $(basename $war_file)"
-                                sleep 5
-                            fi
-                            
-                            # Deploy nuevo WAR
-                            echo "🚀 Deploying $service WAR..."
-                            if ! $WILDFLY_CLI --connect --command="deploy $war_file"; then
-                                echo "❌ Failed to deploy $service"
-                                return 1
-                            fi
-                            
-                            echo "✅ $service deployed successfully"
-                        }
-                        
-                        # Desplegar servicios de infraestructura primero
-                        echo "🏗️ Deploying infrastructure services..."
-                        
-                        # Eureka Server
-                        if [ -f "eureka-server/build/libs/eureka-server.jar" ]; then
-                            deploy_infrastructure_service "eureka-server" "eureka-server/build/libs/eureka-server.jar"
-                        else
-                            echo "⚠️ eureka-server.jar not found, skipping..."
-                        fi
-                        
-                        # Config Server  
-                        if [ -f "config-server/build/libs/config-server.jar" ]; then
-                            deploy_infrastructure_service "config-server" "config-server/build/libs/config-server.jar"
-                        else
-                            echo "⚠️ config-server.jar not found, skipping..."
-                        fi
-                        
-                        # API Gateway (JAR - WebFlux)
-                        if [ -f "api-gateway/build/libs/api-gateway.jar" ]; then
-                            deploy_infrastructure_service "api-gateway" "api-gateway/build/libs/api-gateway.jar"
-                        else
-                            echo "⚠️ api-gateway.jar not found, skipping..."
-                        fi
-                        
-                        # Esperar a que los servicios de infraestructura inicien
-                        echo "⏳ Waiting for infrastructure services to start..."
-                        sleep 30
-                        
-                        # Desplegar servicios de negocio en WildFly
-                        echo "🏢 Deploying business services to WildFly..."
-                        
-                        # Arca Cotizador
-                        if [ -f "arca-cotizador/build/libs/arca-cotizador.war" ]; then
-                            deploy_business_service "arca-cotizador" "$PWD/arca-cotizador/build/libs/arca-cotizador.war"
-                        else
-                            echo "⚠️ arca-cotizador.war not found"
-                        fi
-                        
-                        sleep 10
-                        
-                        # Arca Gestor Solicitudes
-                        if [ -f "arca-gestor-solicitudes/build/libs/arca-gestor-solicitudes.war" ]; then
-                            deploy_business_service "arca-gestor-solicitudes" "$PWD/arca-gestor-solicitudes/build/libs/arca-gestor-solicitudes.war"
-                        else
-                            echo "⚠️ arca-gestor-solicitudes.war not found"
-                        fi
-                        
-                        echo "🎉 All services deployment completed!"
-                        
-                        # Mostrar status de deployments
-                        echo "📋 Deployment status:"
-                        $WILDFLY_CLI --connect --command="deployment-info"
-                    '''
-                }
-            }
-        }
-
-        stage('🗑️ Undeployment') {
-            when { 
-                expression { params.ACCION == 'undeploy' }
-            }
-            steps {
-                script {
-                    echo 'Removiendo deployments existentes...'
-                    sh '''
-                        echo "🗑️ Undeploying services from WildFly..."
-                        
-                        # Undeploy WARs from WildFly (solo servicios de negocio)
-                        for service in arca-cotizador arca-gestor-solicitudes; do
-                            if $WILDFLY_CLI --connect --command="deployment-info --name=${service}.war" >/dev/null 2>&1; then
-                                echo "Removing $service from WildFly..."
-                                $WILDFLY_CLI --connect --command="undeploy ${service}.war"
-                            else
-                                echo "$service not deployed in WildFly"
-                            fi
-                        done
-                        
-                        echo "🗑️ Stopping infrastructure services..."
-                        
-                        # Stop infrastructure services (incluyendo API Gateway)
-                        for service in eureka-server config-server api-gateway; do
-                            if [ -f "$PID_DIR/$service.pid" ]; then
-                                local pid=$(cat "$PID_DIR/$service.pid")
-                                if kill -0 "$pid" 2>/dev/null; then
-                                    echo "Stopping $service (PID: $pid)..."
-                                    kill "$pid"
-                                    rm -f "$PID_DIR/$service.pid"
-                                fi
-                            fi
-                            
-                            # Fallback: kill by process name
-                            pkill -f "$service.jar" || true
-                        done
-                        
-                        echo "✅ All services undeployed"
                     '''
                 }
             }
@@ -501,6 +345,10 @@ pipeline {
                     
                     if [ -f "$ARKA_HOME/eureka-server.log" ]; then
                         tail -100 "$ARKA_HOME/eureka-server.log" > deployment-logs/eureka-server.log
+                    fi
+                    
+                    if [ -f "$ARKA_HOME/api-gateway.log" ]; then
+                        tail -100 "$ARKA_HOME/api-gateway.log" > deployment-logs/api-gateway.log
                     fi
                 '''
                 

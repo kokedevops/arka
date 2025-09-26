@@ -18,6 +18,9 @@ dependencies {
     runtimeOnly 'com.h2database:h2'
     runtimeOnly 'io.asyncer:r2dbc-mysql:1.0.5'  // MySQL R2DBC driver for AWS RDS
     
+    // API Servlet necesaria para compilar el WAR (WildFly proporciona la implementación en runtime)
+    compileOnly 'jakarta.servlet:jakarta.servlet-api:5.0.0'
+
     // Tomcat provided para WildFly
     providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
     
