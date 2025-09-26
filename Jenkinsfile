@@ -5,6 +5,10 @@ pipeline {
         string(name: 'RAMA', defaultValue: 'proyecto-arka', description: 'Valor de Branch o Rama')
         choice(name: 'ACCION', choices: ['full-deploy', 'build-only', 'deploy-only'], description: 'Acción a ejecutar')
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Omitir tests durante build')
+        string(name: 'AWS_DB_HOST', defaultValue: '172.31.48.25', description: 'Host de la base de datos RDS (usar endpoint completo preferiblemente)')
+        string(name: 'AWS_DB_NAME', defaultValue: 'arka-base', description: 'Nombre de la base de datos en RDS')
+        string(name: 'AWS_DB_USERNAME', defaultValue: 'admin', description: 'Usuario de conexión a RDS')
+        password(name: 'AWS_DB_PASSWORD', defaultValue: 'Koke1988*', description: 'Contraseña de conexión a RDS')
     }
     
     environment {
@@ -13,15 +17,15 @@ pipeline {
         WILDFLY_CLI = '/opt/wildfly/bin/jboss-cli.sh'
         WILDFLY_CONTROLLER = 'remote+http://18.117.120.169:9990'
         WILDFLY_USER = 'arka'
-    WILDFLY_PASSWORD = 'Koke1988*'
+        WILDFLY_PASSWORD = 'Koke1988*'
         
         // Application Configuration
         SPRING_PROFILE = 'aws'
         GRADLE_HOME = '/opt/gradle/latest'
-    AWS_DB_HOST = '172.31.48.25'
-    AWS_DB_NAME = 'arka-base'
-    AWS_DB_USERNAME = 'admin'
-    AWS_DB_PASSWORD = 'Koke1988*'
+        AWS_DB_HOST = "${params.AWS_DB_HOST}"
+        AWS_DB_NAME = "${params.AWS_DB_NAME}"
+        AWS_DB_USERNAME = "${params.AWS_DB_USERNAME}"
+        AWS_DB_PASSWORD = "${params.AWS_DB_PASSWORD}"
         
         // Nexus Configuration
         NEXUS_WEB = 'http://3.14.80.146:8081'
@@ -187,25 +191,102 @@ pipeline {
                         echo "🔧 Configurando DataSource para AWS..."
                         DB_HOST="${AWS_DB_HOST:-172.31.48.25}"
                         DB_NAME="${AWS_DB_NAME:-arka-base}"
-                        DB_USER="${AWS_DB_USERNAME:-arka_user}"
-                        DB_PASSWORD="${AWS_DB_PASSWORD:-arka_pass123}"
-                        DB_CONNECTION_URL="jdbc:mysql://${DB_HOST}:3306/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+                        DB_USER="${AWS_DB_USERNAME:-admin}"
+                        DB_PASSWORD="${AWS_DB_PASSWORD:-Koke1988*}"
+                        DB_CONNECTION_URL="jdbc:mysql://${DB_HOST}:3306/${DB_NAME}?sslMode=REQUIRED&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+                        RELOAD_REQUIRED=false
 
-                        if run_cli --command="/subsystem=datasources/data-source=ArkaDS:read-resource" >/dev/null 2>&1; then
-                            echo "ℹ️ DataSource ArkaDS ya existe; actualizando configuración básica"
-                            run_cli --command="/subsystem=datasources/data-source=ArkaDS:write-attribute(name=connection-url,value=\"${DB_CONNECTION_URL}\")" 2>/dev/null || true
-                            run_cli --command="/subsystem=datasources/data-source=ArkaDS:write-attribute(name=user-name,value=\"${DB_USER}\")" 2>/dev/null || true
-                            run_cli --command="/subsystem=datasources/data-source=ArkaDS:write-attribute(name=password,value=\"${DB_PASSWORD}\")" 2>/dev/null || true
+                        echo "🔌 Validando conectividad MySQL desde el agente Jenkins..."
+                        if bash -c "timeout 5 bash -c 'cat < /dev/null > /dev/tcp/${DB_HOST}/3306'" 2>/dev/null; then
+                            echo "✅ Puerto 3306 accesible desde Jenkins"
                         else
-                            echo "➕ Creando DataSource ArkaDS apuntando a ${DB_HOST}/${DB_NAME}"
-                            run_cli --command="/subsystem=datasources/data-source=ArkaDS:add(jndi-name=java:jboss/datasources/ArkaDS,driver-name=mysql,connection-url=\"${DB_CONNECTION_URL}\",user-name=\"${DB_USER}\",password=\"${DB_PASSWORD}\",min-pool-size=5,max-pool-size=20,enabled=true)" || {
-                                echo "❌ Error creando DataSource ArkaDS"
-                                exit 1
-                            }
+                            echo "⚠️ No se pudo abrir conexión TCP hacia ${DB_HOST}:3306 desde Jenkins. Verificar reglas de red si el despliegue falla."
                         fi
 
-                        run_cli --command="/subsystem=datasources/data-source=ArkaDS:enable" 2>/dev/null || true
-                        run_cli --command="/subsystem=datasources/data-source=ArkaDS:test-connection-in-pool" 2>/dev/null || echo "⚠️ No se pudo validar la conexión del pool"
+                        # Asegurar driver JDBC MySQL en WildFly
+                        MYSQL_DRIVER_VERSION="${MYSQL_DRIVER_VERSION:-8.3.0}"
+                        MYSQL_DRIVER_JAR="mysql-connector-j-${MYSQL_DRIVER_VERSION}.jar"
+                        MYSQL_DRIVER_URL="https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/${MYSQL_DRIVER_VERSION}/${MYSQL_DRIVER_JAR}"
+
+                        if ! run_cli --command="/subsystem=datasources/jdbc-driver=mysql:read-resource" >/dev/null 2>&1; then
+                            echo "⬇️  Descargando driver MySQL ${MYSQL_DRIVER_VERSION}..."
+                            if [ ! -f "$MYSQL_DRIVER_JAR" ]; then
+                                curl -fSL "$MYSQL_DRIVER_URL" -o "$MYSQL_DRIVER_JAR" || {
+                                    echo "❌ No se pudo descargar ${MYSQL_DRIVER_JAR}"
+                                    exit 1
+                                }
+                            fi
+
+                            echo "🧩 Registrando módulo com.mysql en WildFly..."
+                            if run_cli --command=":module-info(name=com.mysql)" >/dev/null 2>&1; then
+                                echo "ℹ️ Módulo com.mysql ya existe"
+                            else
+                                run_cli --command="module add --name=com.mysql --resources=$PWD/${MYSQL_DRIVER_JAR} --dependencies=java.logging,javax.transaction.api" || {
+                                    echo "❌ Error creando módulo com.mysql"
+                                    exit 1
+                                }
+                                RELOAD_REQUIRED=true
+                            fi
+
+                            echo "📦 Registrando driver MySQL en WildFly..."
+                            run_cli --command="/subsystem=datasources/jdbc-driver=mysql:add(driver-name=mysql,driver-module-name=com.mysql,driver-class-name=com.mysql.cj.jdbc.Driver,driver-datasource-class-name=com.mysql.cj.jdbc.MysqlDataSource,driver-xa-datasource-class-name=com.mysql.cj.jdbc.MysqlXADataSource)" || {
+                                echo "❌ Error registrando driver MySQL"
+                                exit 1
+                            }
+                            RELOAD_REQUIRED=true
+                        else
+                            echo "ℹ️ Driver MySQL ya registrado en WildFly"
+                        fi
+
+                        if run_cli --command="/subsystem=datasources/data-source=ArkaDS:read-resource" >/dev/null 2>&1; then
+                            echo "ℹ️ DataSource ArkaDS ya existe; eliminando para recrear con la configuración actual"
+                            if run_cli --command="/subsystem=datasources/data-source=ArkaDS:remove"; then
+                                echo "✅ DataSource ArkaDS eliminado"
+                                sleep 2
+                                RELOAD_REQUIRED=true
+                            else
+                                echo "❌ No se pudo eliminar ArkaDS existente"
+                                exit 1
+                            fi
+                        else
+                            echo "ℹ️ DataSource ArkaDS no existe; se creará nuevo"
+                        fi
+
+                        echo "➕ Creando DataSource ArkaDS apuntando a ${DB_HOST}/${DB_NAME}"
+                        run_cli --command="data-source add --name=ArkaDS --jndi-name=java:jboss/datasources/ArkaDS --driver-name=mysql --connection-url='${DB_CONNECTION_URL}' --user-name='${DB_USER}' --password='${DB_PASSWORD}' --min-pool-size=5 --max-pool-size=20 --enabled=true" || {
+                            echo "❌ Error creando DataSource ArkaDS"
+                            exit 1
+                        }
+                        RELOAD_REQUIRED=true
+
+                        if [ "$RELOAD_REQUIRED" = "true" ]; then
+                            echo "♻️ Aplicando reload de WildFly para activar cambios pendientes..."
+                            run_cli --command=":reload" || {
+                                echo "❌ Falló el reload de WildFly"
+                                exit 1
+                            }
+                            echo "⏳ Esperando a que WildFly vuelva a estar disponible..."
+                            sleep 5
+                            RELOAD_ATTEMPTS=0
+                            until run_cli --command=":whoami" >/dev/null 2>&1; do
+                                RELOAD_ATTEMPTS=$((RELOAD_ATTEMPTS + 1))
+                                if [ $RELOAD_ATTEMPTS -ge 20 ]; then
+                                    echo "❌ WildFly no respondió tras el reload"
+                                    exit 1
+                                fi
+                                sleep 3
+                            done
+                            echo "✅ WildFly recargado y activo"
+                        fi
+
+                        run_cli --command="data-source enable --name=ArkaDS" 2>/dev/null || true
+                        run_cli --command="/subsystem=datasources/data-source=ArkaDS:flush-all-connection-in-pool()" 2>/dev/null || true
+                        if run_cli --command="data-source test-connection-in-pool --name=ArkaDS"; then
+                            echo "✅ Conexión a ArkaDS validada correctamente"
+                        else
+                            echo "❌ No se pudo validar la conexión del pool ArkaDS. Revisar credenciales y reglas de red (SG/NACL)."
+                            exit 1
+                        fi
                         
                         # System properties para AWS
                         run_cli --command="
