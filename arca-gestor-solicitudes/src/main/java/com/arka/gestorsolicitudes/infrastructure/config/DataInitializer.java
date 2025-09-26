@@ -4,10 +4,8 @@ import com.arka.security.domain.model.Usuario;
 import com.arka.security.domain.repository.UsuarioRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
 
 /**
  * Inicializador de datos por defecto
@@ -18,19 +16,22 @@ public class DataInitializer implements CommandLineRunner {
     
     private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
     
-    @Autowired
-    private UsuarioRepository usuarioRepository;
-    
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    public DataInitializer(UsuarioRepository usuarioRepository,
+                           PasswordEncoder passwordEncoder) {
+        this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
     
     @Override
     public void run(String... args) throws Exception {
         log.info("Inicializando datos por defecto...");
         
         // Verificar si ya existen usuarios
-        Long userCount = usuarioRepository.count().block();
-        if (userCount != null && userCount > 0) {
+        long userCount = usuarioRepository.count();
+        if (userCount > 0) {
             log.info("Los usuarios ya están inicializados. Total: {}", userCount);
             return;
         }
@@ -73,16 +74,16 @@ public class DataInitializer implements CommandLineRunner {
         
         // Guardar usuarios
         try {
-            usuarioRepository.save(admin).block();
+            usuarioRepository.save(admin);
             log.info("✅ Usuario administrador creado: admin/admin123");
             
-            usuarioRepository.save(gestor).block();
+            usuarioRepository.save(gestor);
             log.info("✅ Usuario gestor creado: gestor/gestor123");
             
-            usuarioRepository.save(operador).block();
+            usuarioRepository.save(operador);
             log.info("✅ Usuario operador creado: operador/operador123");
             
-            usuarioRepository.save(usuario).block();
+            usuarioRepository.save(usuario);
             log.info("✅ Usuario regular creado: usuario/usuario123");
             
             log.info("🎉 Inicialización de datos completada exitosamente!");
