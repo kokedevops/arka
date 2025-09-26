@@ -1,5 +1,6 @@
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jdbc'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     
@@ -17,6 +18,10 @@ dependencies {
 
     // Tomcat provided para WildFly
     providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
+
+    // Drivers JDBC
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    runtimeOnly 'com.h2database:h2'
     
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
