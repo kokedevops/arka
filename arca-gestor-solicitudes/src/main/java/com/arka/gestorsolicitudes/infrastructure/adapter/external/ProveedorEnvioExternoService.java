@@ -3,15 +3,15 @@ package com.arka.gestorsolicitudes.infrastructure.adapter.external;
 import com.arka.gestorsolicitudes.domain.model.CalculoEnvio;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
-import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.util.Map;
 import java.util.Random;
 
@@ -21,15 +21,15 @@ import java.util.Random;
  */
 @Service
 public class ProveedorEnvioExternoService {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(ProveedorEnvioExternoService.class);
-    private final WebClient webClient;
+    private final RestTemplate restTemplate;
     private final Random random = new Random();
-    
-    public ProveedorEnvioExternoService(WebClient.Builder webClientBuilder) {
-        this.webClient = webClientBuilder
-                .baseUrl("http://localhost:9090") // URL del servicio externo simulado
-                .build();
+
+    public ProveedorEnvioExternoService(RestTemplateBuilder restTemplateBuilder) {
+    this.restTemplate = restTemplateBuilder
+        .rootUri("http://localhost:9090")
+        .build();
     }
     
     /**
@@ -38,39 +38,46 @@ public class ProveedorEnvioExternoService {
      */
     @CircuitBreaker(name = "proveedor-externo-service", fallbackMethod = "fallbackCalculoProveedorExterno")
     @Retry(name = "calculo-envio-service")
-    @TimeLimiter(name = "calculo-envio-service")
-    public Mono<CalculoEnvio> calcularEnvioProveedorExterno(String origen, String destino, BigDecimal peso) {
+    public CalculoEnvio calcularEnvioProveedorExterno(String origen, String destino, BigDecimal peso) {
         logger.info("Llamando al proveedor externo para calcular envío de {} a {} con peso {}", origen, destino, peso);
-        
-        return webClient.post()
-                .uri("/api/calcular-envio")
-                .bodyValue(Map.of(
-                    "origen", origen,
-                    "destino", destino,
-                    "peso", peso
-                ))
-                .retrieve()
-                .bodyToMono(Map.class)
-                .map(response -> {
-                    BigDecimal costo = new BigDecimal(response.get("costo").toString());
-                    Integer tiempoEstimado = Integer.valueOf(response.get("tiempoEstimadoDias").toString());
-                    String proveedor = response.get("proveedor").toString();
-                    
-                    return CalculoEnvio.exitoso(
-                        java.util.UUID.randomUUID().toString(),
-                        costo,
-                        tiempoEstimado,
-                        proveedor
-                    );
-                })
-                .doOnSuccess(result -> logger.info("Cálculo exitoso del proveedor externo: {}", result.getProveedorUtilizado()))
-                .doOnError(error -> logger.error("Error en proveedor externo: {}", error.getMessage()));
+
+        try {
+            ResponseEntity<Map<String, Object>> responseEntity = restTemplate.postForEntity(
+                    "/api/calcular-envio",
+                    Map.of("origen", origen, "destino", destino, "peso", peso),
+                    Map.class
+            );
+
+            Map<String, Object> response = responseEntity.getBody();
+            if (response == null) {
+                throw new IllegalStateException("Respuesta vacía del proveedor externo");
+            }
+
+            BigDecimal costo = new BigDecimal(response.get("costo").toString());
+            Integer tiempoEstimado = Integer.valueOf(response.get("tiempoEstimadoDias").toString());
+            String proveedor = response.get("proveedor").toString();
+
+            CalculoEnvio calculo = CalculoEnvio.exitoso(
+                    java.util.UUID.randomUUID().toString(),
+                    costo,
+                    tiempoEstimado,
+                    proveedor
+            );
+
+            logger.info("Cálculo exitoso del proveedor externo: {}", calculo.getProveedorUtilizado());
+            return calculo;
+        } catch (RestClientException ex) {
+            throw new IllegalStateException(
+                    String.format("Error al invocar proveedor externo para %s -> %s: %s", origen, destino, ex.getMessage()),
+                    ex
+            );
+        }
     }
     
     /**
      * Método fallback cuando el proveedor externo falla
      */
-    public Mono<CalculoEnvio> fallbackCalculoProveedorExterno(String origen, String destino, BigDecimal peso, Exception ex) {
+    public CalculoEnvio fallbackCalculoProveedorExterno(String origen, String destino, BigDecimal peso, Throwable ex) {
         logger.warn("Circuit Breaker activado para proveedor externo. Usando valores por defecto. Error: {}", ex.getMessage());
         
         // Lógica de fallback con cálculo básico
@@ -86,44 +93,46 @@ public class ProveedorEnvioExternoService {
         calculoFallback.setCosto(costoBase);
         calculoFallback.setTiempoEstimadoDias(tiempoEstimado);
         
-        return Mono.just(calculoFallback);
+        return calculoFallback;
     }
     
     /**
      * Simulador de servicio interno como alternativa (para pruebas)
      */
     @CircuitBreaker(name = "calculo-envio-service", fallbackMethod = "fallbackCalculoInterno")
-    public Mono<CalculoEnvio> calcularEnvioSimulado(String origen, String destino, BigDecimal peso) {
+    public CalculoEnvio calcularEnvioSimulado(String origen, String destino, BigDecimal peso) {
         logger.info("Usando servicio interno simulado para calcular envío");
-        
-        return Mono.fromCallable(() -> {
-            // Simular posible fallo aleatorio para pruebas
-            if (random.nextDouble() < 0.3) { // 30% probabilidad de fallo
-                throw new RuntimeException("Fallo simulado del servicio interno");
-            }
-            
-            // Simular delay de procesamiento
-            Thread.sleep(random.nextInt(3000) + 1000); // 1-4 segundos
-            
-            BigDecimal costo = calcularCostoBasico(origen, destino, peso);
-            Integer tiempoEstimado = calcularTiempoBasico(origen, destino);
-            
-            return CalculoEnvio.exitoso(
+
+        // Simular posible fallo aleatorio para pruebas
+        if (random.nextDouble() < 0.3) {
+            throw new IllegalStateException("Fallo simulado del servicio interno");
+        }
+
+        // Simular delay de procesamiento
+        try {
+            Thread.sleep(random.nextInt(3000) + 1000L);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        BigDecimal costo = calcularCostoBasico(origen, destino, peso);
+        Integer tiempoEstimado = calcularTiempoBasico(origen, destino);
+
+        CalculoEnvio calculo = CalculoEnvio.exitoso(
                 java.util.UUID.randomUUID().toString(),
                 costo,
                 tiempoEstimado,
                 "SERVICIO_INTERNO_SIMULADO"
-            );
-        })
-        .delayElement(Duration.ofMillis(500)) // Simular latencia de red
-        .doOnSuccess(result -> logger.info("Cálculo exitoso del servicio interno"))
-        .doOnError(error -> logger.error("Error en servicio interno: {}", error.getMessage()));
+        );
+
+        logger.info("Cálculo exitoso del servicio interno");
+        return calculo;
     }
     
     /**
      * Fallback cuando el servicio interno también falla
      */
-    public Mono<CalculoEnvio> fallbackCalculoInterno(String origen, String destino, BigDecimal peso, Exception ex) {
+    public CalculoEnvio fallbackCalculoInterno(String origen, String destino, BigDecimal peso, Throwable ex) {
         logger.error("Todos los servicios fallaron. Usando valores de emergencia. Error: {}", ex.getMessage());
         
         CalculoEnvio calculoEmergencia = CalculoEnvio.fallback(
@@ -135,7 +144,7 @@ public class ProveedorEnvioExternoService {
         calculoEmergencia.setCosto(BigDecimal.valueOf(75.0)); // Costo de emergencia más alto
         calculoEmergencia.setTiempoEstimadoDias(10); // Tiempo de emergencia más conservador
         
-        return Mono.just(calculoEmergencia);
+        return calculoEmergencia;
     }
     
     /**

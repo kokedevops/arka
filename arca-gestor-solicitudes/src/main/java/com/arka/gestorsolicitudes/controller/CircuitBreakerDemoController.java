@@ -4,7 +4,6 @@ import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -16,6 +15,12 @@ import java.util.Map;
 @RequestMapping("/api/circuit-breaker")
 public class CircuitBreakerDemoController {
     
+    private static final String KEY_MENSAJE = "mensaje";
+    private static final String KEY_NOMBRE = "nombre";
+    private static final String KEY_ESTADO_ACTUAL = "estadoActual";
+    private static final String KEY_ERROR = "error";
+    private static final String KEY_DETALLE = "detalle";
+
     private final CircuitBreakerRegistry circuitBreakerRegistry;
     
     public CircuitBreakerDemoController(CircuitBreakerRegistry circuitBreakerRegistry) {
@@ -26,7 +31,7 @@ public class CircuitBreakerDemoController {
      * Obtiene el estado de todos los Circuit Breakers
      */
     @GetMapping("/estado")
-    public Mono<ResponseEntity<Map<String, Object>>> obtenerEstadoCircuitBreakers() {
+    public ResponseEntity<Map<String, Object>> obtenerEstadoCircuitBreakers() {
         Map<String, Object> estados = new HashMap<>();
         
         circuitBreakerRegistry.getAllCircuitBreakers().forEach(cb -> {
@@ -41,19 +46,19 @@ public class CircuitBreakerDemoController {
             estados.put(cb.getName(), info);
         });
         
-        return Mono.just(ResponseEntity.ok(estados));
+    return ResponseEntity.ok(estados);
     }
     
     /**
      * Obtiene el estado de un Circuit Breaker específico
      */
     @GetMapping("/estado/{nombre}")
-    public Mono<ResponseEntity<Map<String, Object>>> obtenerEstadoCircuitBreaker(@PathVariable String nombre) {
+    public ResponseEntity<Map<String, Object>> obtenerEstadoCircuitBreaker(@PathVariable String nombre) {
         try {
             CircuitBreaker circuitBreaker = circuitBreakerRegistry.circuitBreaker(nombre);
             
             Map<String, Object> info = new HashMap<>();
-            info.put("nombre", nombre);
+            info.put(KEY_NOMBRE, nombre);
             info.put("estado", circuitBreaker.getState().toString());
             info.put("metricas", circuitBreaker.getMetrics());
             info.put("configuracion", Map.of(
@@ -62,9 +67,9 @@ public class CircuitBreakerDemoController {
                 "minimumNumberOfCalls", circuitBreaker.getCircuitBreakerConfig().getMinimumNumberOfCalls()
             ));
             
-            return Mono.just(ResponseEntity.ok(info));
+            return ResponseEntity.ok(info);
         } catch (Exception e) {
-            return Mono.just(ResponseEntity.notFound().build());
+            return ResponseEntity.notFound().build();
         }
     }
     
@@ -72,19 +77,19 @@ public class CircuitBreakerDemoController {
      * Fuerza la transición del Circuit Breaker a estado OPEN (para pruebas)
      */
     @PostMapping("/forzar-apertura/{nombre}")
-    public Mono<ResponseEntity<Map<String, String>>> forzarApertura(@PathVariable String nombre) {
+    public ResponseEntity<Map<String, String>> forzarApertura(@PathVariable String nombre) {
         try {
             CircuitBreaker circuitBreaker = circuitBreakerRegistry.circuitBreaker(nombre);
             circuitBreaker.transitionToOpenState();
             
-            return Mono.just(ResponseEntity.ok(Map.of(
-                "mensaje", "Circuit Breaker forzado a estado OPEN",
-                "nombre", nombre,
-                "estadoActual", circuitBreaker.getState().toString()
-            )));
+            return ResponseEntity.ok(Map.of(
+                KEY_MENSAJE, "Circuit Breaker forzado a estado OPEN",
+                KEY_NOMBRE, nombre,
+                KEY_ESTADO_ACTUAL, circuitBreaker.getState().toString()
+            ));
         } catch (Exception e) {
-            return Mono.just(ResponseEntity.badRequest()
-                .body(Map.of("error", "No se pudo forzar apertura", "detalle", e.getMessage())));
+            return ResponseEntity.badRequest()
+                .body(Map.of(KEY_ERROR, "No se pudo forzar apertura", KEY_DETALLE, e.getMessage()));
         }
     }
     
@@ -92,19 +97,19 @@ public class CircuitBreakerDemoController {
      * Fuerza la transición del Circuit Breaker a estado CLOSED (para pruebas)
      */
     @PostMapping("/forzar-cierre/{nombre}")
-    public Mono<ResponseEntity<Map<String, String>>> forzarCierre(@PathVariable String nombre) {
+    public ResponseEntity<Map<String, String>> forzarCierre(@PathVariable String nombre) {
         try {
             CircuitBreaker circuitBreaker = circuitBreakerRegistry.circuitBreaker(nombre);
             circuitBreaker.transitionToClosedState();
             
-            return Mono.just(ResponseEntity.ok(Map.of(
-                "mensaje", "Circuit Breaker forzado a estado CLOSED",
-                "nombre", nombre,
-                "estadoActual", circuitBreaker.getState().toString()
-            )));
+            return ResponseEntity.ok(Map.of(
+                KEY_MENSAJE, "Circuit Breaker forzado a estado CLOSED",
+                KEY_NOMBRE, nombre,
+                KEY_ESTADO_ACTUAL, circuitBreaker.getState().toString()
+            ));
         } catch (Exception e) {
-            return Mono.just(ResponseEntity.badRequest()
-                .body(Map.of("error", "No se pudo forzar cierre", "detalle", e.getMessage())));
+            return ResponseEntity.badRequest()
+                .body(Map.of(KEY_ERROR, "No se pudo forzar cierre", KEY_DETALLE, e.getMessage()));
         }
     }
     
@@ -112,19 +117,19 @@ public class CircuitBreakerDemoController {
      * Reinicia las métricas del Circuit Breaker
      */
     @PostMapping("/reiniciar-metricas/{nombre}")
-    public Mono<ResponseEntity<Map<String, String>>> reiniciarMetricas(@PathVariable String nombre) {
+    public ResponseEntity<Map<String, String>> reiniciarMetricas(@PathVariable String nombre) {
         try {
             CircuitBreaker circuitBreaker = circuitBreakerRegistry.circuitBreaker(nombre);
             circuitBreaker.reset();
             
-            return Mono.just(ResponseEntity.ok(Map.of(
-                "mensaje", "Métricas del Circuit Breaker reiniciadas",
-                "nombre", nombre,
-                "estadoActual", circuitBreaker.getState().toString()
-            )));
+            return ResponseEntity.ok(Map.of(
+                KEY_MENSAJE, "Métricas del Circuit Breaker reiniciadas",
+                KEY_NOMBRE, nombre,
+                KEY_ESTADO_ACTUAL, circuitBreaker.getState().toString()
+            ));
         } catch (Exception e) {
-            return Mono.just(ResponseEntity.badRequest()
-                .body(Map.of("error", "No se pudieron reiniciar las métricas", "detalle", e.getMessage())));
+            return ResponseEntity.badRequest()
+                .body(Map.of(KEY_ERROR, "No se pudieron reiniciar las métricas", KEY_DETALLE, e.getMessage()));
         }
     }
 }

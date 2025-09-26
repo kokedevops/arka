@@ -2,7 +2,6 @@ package com.arka.gestorsolicitudes.cli;
 
 import com.arka.gestorsolicitudes.application.service.CalculoEnvioService;
 import com.arka.gestorsolicitudes.domain.model.CalculoEnvio;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -15,6 +14,12 @@ import java.time.format.DateTimeFormatter;
 @Component
 public class CircuitBreakerCLIUtils {
 
+    private static final String LINE_SEPARATOR = System.lineSeparator();
+    private static final String SEPARADOR_MEDIO = "────────────────────────────────";
+    private static final String SEPARADOR_LARGO = "════════════════════════════════════════";
+    private static final String SEPARADOR_EXTRA_LARGO = "════════════════════════════════════════════════════════════════";
+    private static final DateTimeFormatter FECHA_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+
     private final CalculoEnvioService calculoEnvioService;
 
     public CircuitBreakerCLIUtils(CalculoEnvioService calculoEnvioService) {
@@ -26,67 +31,72 @@ public class CircuitBreakerCLIUtils {
      */
     public String ejecutarPruebaDeCarga(int numLlamadas, String escenario) {
         StringBuilder resultado = new StringBuilder();
-        resultado.append("🔄 PRUEBA DE CARGA - Circuit Breaker\n");
-        resultado.append("════════════════════════════════════════\n");
-        resultado.append(String.format("📊 Llamadas: %d | Escenario: %s\n", numLlamadas, escenario));
-        resultado.append(String.format("🕐 Inicio: %s\n\n", 
-            LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))));
+        appendLine(resultado, "🔄 PRUEBA DE CARGA - Circuit Breaker");
+        appendLine(resultado, SEPARADOR_LARGO);
+        appendLine(resultado, String.format("📊 Llamadas: %d | Escenario: %s", numLlamadas, escenario));
+        appendLine(resultado, String.format("🕐 Inicio: %s", LocalDateTime.now().format(FECHA_FORMATTER)));
+        resultado.append(LINE_SEPARATOR);
 
-        int exitosos = 0, fallbacks = 0, errores = 0;
+        int exitosos = 0;
+        int fallbacks = 0;
+        int errores = 0;
         long tiempoInicio = System.currentTimeMillis();
 
         for (int i = 1; i <= numLlamadas; i++) {
             try {
                 CalculoEnvio calculo = calculoEnvioService
-                        .probarCircuitBreaker(escenario, "Lima", "Arequipa", BigDecimal.valueOf(1.0))
-                        .block();
+                    .probarCircuitBreaker(escenario, "Lima", "Arequipa", BigDecimal.valueOf(1.0));
 
                 if (calculo != null) {
                     switch (calculo.getEstado()) {
                         case COMPLETADO -> {
                             exitosos++;
-                            resultado.append(String.format("✅ %02d: %s\n", i, calculo.getProveedorUtilizado()));
+                            appendLine(resultado, String.format("✅ %02d: %s", i, calculo.getProveedorUtilizado()));
                         }
                         case FALLBACK -> {
                             fallbacks++;
-                            resultado.append(String.format("🔄 %02d: %s (Fallback)\n", i, calculo.getProveedorUtilizado()));
+                            appendLine(resultado, String.format("🔄 %02d: %s (Fallback)", i, calculo.getProveedorUtilizado()));
                         }
                         default -> {
                             errores++;
-                            resultado.append(String.format("❌ %02d: %s\n", i, calculo.getEstado()));
+                            appendLine(resultado, String.format("❌ %02d: %s", i, calculo.getEstado()));
                         }
                     }
                 } else {
                     errores++;
-                    resultado.append(String.format("❌ %02d: No response\n", i));
+                    appendLine(resultado, String.format("❌ %02d: Sin respuesta", i));
                 }
 
                 Thread.sleep(100); // Pausa entre llamadas
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrumpido durante la prueba de carga", ie);
             } catch (Exception e) {
                 errores++;
-                resultado.append(String.format("❌ %02d: %s\n", i, e.getMessage()));
+                appendLine(resultado, String.format("❌ %02d: %s", i, e.getMessage()));
             }
         }
 
         long tiempoTotal = System.currentTimeMillis() - tiempoInicio;
 
-        resultado.append("\n📈 RESUMEN DE RESULTADOS:\n");
-        resultado.append("════════════════════════════════════════\n");
-        resultado.append(String.format("✅ Exitosos: %d (%.1f%%)\n", exitosos, (double) exitosos / numLlamadas * 100));
-        resultado.append(String.format("🔄 Fallbacks: %d (%.1f%%)\n", fallbacks, (double) fallbacks / numLlamadas * 100));
-        resultado.append(String.format("❌ Errores: %d (%.1f%%)\n", errores, (double) errores / numLlamadas * 100));
-        resultado.append(String.format("⏱️  Tiempo total: %d ms\n", tiempoTotal));
-        resultado.append(String.format("📊 Promedio por llamada: %.1f ms\n", (double) tiempoTotal / numLlamadas));
+        appendLine(resultado, "");
+        appendLine(resultado, "📈 RESUMEN DE RESULTADOS:");
+        appendLine(resultado, SEPARADOR_LARGO);
+        appendLine(resultado, String.format("✅ Exitosos: %d (%.1f%%)", exitosos, (double) exitosos / numLlamadas * 100));
+        appendLine(resultado, String.format("🔄 Fallbacks: %d (%.1f%%)", fallbacks, (double) fallbacks / numLlamadas * 100));
+        appendLine(resultado, String.format("❌ Errores: %d (%.1f%%)", errores, (double) errores / numLlamadas * 100));
+        appendLine(resultado, String.format("⏱️  Tiempo total: %d ms", tiempoTotal));
+        appendLine(resultado, String.format("📊 Promedio por llamada: %.1f ms", (double) tiempoTotal / numLlamadas));
 
-        // Análisis del Circuit Breaker
-        resultado.append("\n🔍 ANÁLISIS CIRCUIT BREAKER:\n");
-        resultado.append("════════════════════════════════════════\n");
+        appendLine(resultado, "");
+        appendLine(resultado, "🔍 ANÁLISIS CIRCUIT BREAKER:");
+        appendLine(resultado, SEPARADOR_LARGO);
         if (fallbacks > 0) {
-            resultado.append("🔴 Circuit Breaker ACTIVADO durante la prueba\n");
-            resultado.append("🛡️  Fallbacks protegieron el sistema de fallos en cascada\n");
+            appendLine(resultado, "🔴 Circuit Breaker ACTIVADO durante la prueba");
+            appendLine(resultado, "🛡️  Fallbacks protegieron el sistema de fallos en cascada");
         } else {
-            resultado.append("🟢 Circuit Breaker en estado NORMAL\n");
-            resultado.append("✨ Todos los servicios funcionaron correctamente\n");
+            appendLine(resultado, "🟢 Circuit Breaker en estado NORMAL");
+            appendLine(resultado, "✨ Todos los servicios funcionaron correctamente");
         }
 
         return resultado.toString();
@@ -97,40 +107,43 @@ public class CircuitBreakerCLIUtils {
      */
     public String generarReporteEstado() {
         StringBuilder reporte = new StringBuilder();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
 
-        reporte.append("📊 REPORTE DE ESTADO - CIRCUIT BREAKER\n");
-        reporte.append("════════════════════════════════════════════════════════════════\n");
-        reporte.append(String.format("🕐 Fecha: %s\n", LocalDateTime.now().format(formatter)));
-        reporte.append("🏢 Servicio: Arca Gestor Solicitudes\n");
-        reporte.append("🔒 Componente: Circuit Breaker para Cálculo de Envío\n\n");
+        appendLine(reporte, "📊 REPORTE DE ESTADO - CIRCUIT BREAKER");
+        appendLine(reporte, SEPARADOR_EXTRA_LARGO);
+        appendLine(reporte, String.format("🕐 Fecha: %s", LocalDateTime.now().format(FECHA_FORMATTER)));
+        appendLine(reporte, "🏢 Servicio: Arca Gestor Solicitudes");
+        appendLine(reporte, "🔒 Componente: Circuit Breaker para Cálculo de Envío");
+        reporte.append(LINE_SEPARATOR);
 
         try {
-            String estadoServicio = calculoEnvioService.obtenerEstadoCalculos().block();
-            reporte.append("✅ Estado del Servicio: ").append(estadoServicio).append("\n");
+            String estadoServicio = calculoEnvioService.obtenerEstadoCalculos();
+            appendLine(reporte, "✅ Estado del Servicio: " + estadoServicio);
         } catch (Exception e) {
-            reporte.append("❌ Error al obtener estado: ").append(e.getMessage()).append("\n");
+            appendLine(reporte, "❌ Error al obtener estado: " + e.getMessage());
         }
 
-        reporte.append("\n🛠️  CONFIGURACIÓN ACTUAL:\n");
-        reporte.append("────────────────────────────────────────\n");
-        reporte.append("• Proveedor Externo Service:\n");
-        reporte.append("  - Sliding Window: 8 llamadas\n");
-        reporte.append("  - Failure Rate Threshold: 60%\n");
-        reporte.append("  - Wait Duration: 15 segundos\n\n");
-        reporte.append("• Calculo Envio Service:\n");
-        reporte.append("  - Sliding Window: 10 llamadas\n");
-        reporte.append("  - Failure Rate Threshold: 50%\n");
-        reporte.append("  - Wait Duration: 10 segundos\n");
-        reporte.append("  - Retry: 3 intentos\n");
-        reporte.append("  - Timeout: 5 segundos\n");
+        appendLine(reporte, "");
+        appendLine(reporte, "🛠️  CONFIGURACIÓN ACTUAL:");
+        appendLine(reporte, SEPARADOR_MEDIO);
+        appendLine(reporte, "• Proveedor Externo Service:");
+        appendLine(reporte, "  - Sliding Window: 8 llamadas");
+        appendLine(reporte, "  - Failure Rate Threshold: 60%");
+        appendLine(reporte, "  - Wait Duration: 15 segundos");
+        reporte.append(LINE_SEPARATOR);
+        appendLine(reporte, "• Calculo Envio Service:");
+        appendLine(reporte, "  - Sliding Window: 10 llamadas");
+        appendLine(reporte, "  - Failure Rate Threshold: 50%");
+        appendLine(reporte, "  - Wait Duration: 10 segundos");
+        appendLine(reporte, "  - Retry: 3 intentos");
+        appendLine(reporte, "  - Timeout: 5 segundos");
 
-        reporte.append("\n💡 RECOMENDACIONES:\n");
-        reporte.append("────────────────────────────────────────\n");
-        reporte.append("• Monitoree las métricas regularmente\n");
-        reporte.append("• Ejecute pruebas de carga periódicamente\n");
-        reporte.append("• Verifique los logs para detectar patrones\n");
-        reporte.append("• Ajuste los umbrales según el comportamiento observado\n");
+        appendLine(reporte, "");
+        appendLine(reporte, "💡 RECOMENDACIONES:");
+        appendLine(reporte, SEPARADOR_MEDIO);
+        appendLine(reporte, "• Monitoree las métricas regularmente");
+        appendLine(reporte, "• Ejecute pruebas de carga periódicamente");
+        appendLine(reporte, "• Verifique los logs para detectar patrones");
+        appendLine(reporte, "• Ajuste los umbrales según el comportamiento observado");
 
         return reporte.toString();
     }
@@ -140,65 +153,70 @@ public class CircuitBreakerCLIUtils {
      */
     public String ejecutarDemostracion() {
         StringBuilder demo = new StringBuilder();
-        demo.append("🎭 DEMOSTRACIÓN CIRCUIT BREAKER\n");
-        demo.append("════════════════════════════════════════════════════════════════\n\n");
+        appendLine(demo, "🎭 DEMOSTRACIÓN CIRCUIT BREAKER");
+        appendLine(demo, SEPARADOR_EXTRA_LARGO);
+        demo.append(LINE_SEPARATOR);
 
-        // Prueba 1: Servicio normal
-        demo.append("🔹 FASE 1: Funcionamiento Normal\n");
-        demo.append("────────────────────────────────\n");
+        appendLine(demo, "🔹 FASE 1: Funcionamiento Normal");
+        appendLine(demo, SEPARADOR_MEDIO);
         try {
             CalculoEnvio resultado1 = calculoEnvioService
-                    .calcularEnvio("Lima", "Arequipa", BigDecimal.valueOf(2.0), "50x30x20")
-                    .block();
+                .calcularEnvio("Lima", "Arequipa", BigDecimal.valueOf(2.0), "50x30x20");
             if (resultado1 != null) {
-                demo.append(String.format("✅ Resultado: %s - %s\n", 
+                appendLine(demo, String.format("✅ Resultado: %s - %s",
                     resultado1.getEstado(), resultado1.getProveedorUtilizado()));
             }
         } catch (Exception e) {
-            demo.append(String.format("❌ Error: %s\n", e.getMessage()));
+            appendLine(demo, "❌ Error: " + e.getMessage());
         }
 
-        // Prueba 2: Forzar fallos
-        demo.append("\n🔹 FASE 2: Simulación de Fallos\n");
-        demo.append("────────────────────────────────\n");
+        appendLine(demo, "");
+        appendLine(demo, "🔹 FASE 2: Simulación de Fallos");
+        appendLine(demo, SEPARADOR_MEDIO);
         for (int i = 1; i <= 5; i++) {
             try {
                 CalculoEnvio resultado = calculoEnvioService
-                        .probarCircuitBreaker("externo", "Lima", "Cusco", BigDecimal.valueOf(1.0))
-                        .block();
+                    .probarCircuitBreaker("externo", "Lima", "Cusco", BigDecimal.valueOf(1.0));
                 if (resultado != null) {
-                    demo.append(String.format("🔄 Intento %d: %s\n", i, resultado.getEstado()));
+                    appendLine(demo, String.format("🔄 Intento %d: %s", i, resultado.getEstado()));
                 }
                 Thread.sleep(500);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Demostración interrumpida", ie);
             } catch (Exception e) {
-                demo.append(String.format("❌ Intento %d: %s\n", i, e.getMessage()));
+                appendLine(demo, String.format("❌ Intento %d: %s", i, e.getMessage()));
             }
         }
 
-        // Prueba 3: Fallback
-        demo.append("\n🔹 FASE 3: Activación de Fallbacks\n");
-        demo.append("──────────────────────────────────\n");
+        appendLine(demo, "");
+        appendLine(demo, "🔹 FASE 3: Activación de Fallbacks");
+        appendLine(demo, SEPARADOR_MEDIO + "──");
         try {
             CalculoEnvio resultado3 = calculoEnvioService
-                    .probarCircuitBreaker("completo", "Lima", "Trujillo", BigDecimal.valueOf(3.0))
-                    .block();
+                .probarCircuitBreaker("completo", "Lima", "Trujillo", BigDecimal.valueOf(3.0));
             if (resultado3 != null) {
-                demo.append(String.format("🛡️  Fallback activado: %s - %s\n", 
+                appendLine(demo, String.format("🛡️  Fallback activado: %s - %s",
                     resultado3.getEstado(), resultado3.getProveedorUtilizado()));
                 if (resultado3.getMensajeError() != null) {
-                    demo.append(String.format("💬 Mensaje: %s\n", resultado3.getMensajeError()));
+                    appendLine(demo, "💬 Mensaje: " + resultado3.getMensajeError());
                 }
             }
         } catch (Exception e) {
-            demo.append(String.format("❌ Error: %s\n", e.getMessage()));
+            appendLine(demo, "❌ Error: " + e.getMessage());
         }
 
-        demo.append("\n🎯 CONCLUSIÓN:\n");
-        demo.append("────────────────────────────────\n");
-        demo.append("✨ El Circuit Breaker protege el sistema contra fallos en cascada\n");
-        demo.append("🔄 Los fallbacks garantizan la disponibilidad del servicio\n");
-        demo.append("📊 El sistema mantiene funcionalidad básica incluso con fallos\n");
+        appendLine(demo, "");
+        appendLine(demo, "🎯 CONCLUSIÓN:");
+        appendLine(demo, SEPARADOR_MEDIO);
+        appendLine(demo, "✨ El Circuit Breaker protege el sistema contra fallos en cascada");
+        appendLine(demo, "🔄 Los fallbacks garantizan la disponibilidad del servicio");
+        appendLine(demo, "📊 El sistema mantiene funcionalidad básica incluso con fallos");
 
         return demo.toString();
+    }
+
+    private StringBuilder appendLine(StringBuilder builder, String value) {
+        return builder.append(value).append(LINE_SEPARATOR);
     }
 }

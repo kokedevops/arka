@@ -1,56 +1,37 @@
 package com.arka.security.domain.repository;
 
 import com.arka.security.domain.model.RefreshToken;
-import org.springframework.data.r2dbc.repository.Query;
-import org.springframework.data.r2dbc.repository.R2dbcRepository;
+import org.springframework.data.jdbc.repository.query.Modifying;
+import org.springframework.data.jdbc.repository.query.Query;
+import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Repositorio reactivo para RefreshToken
  */
 @Repository
-public interface RefreshTokenRepository extends R2dbcRepository<RefreshToken, Long> {
-    
-    /**
-     * Busca un refresh token por su valor
-     */
-    Mono<RefreshToken> findByToken(String token);
-    
-    /**
-     * Busca tokens activos de un usuario
-     */
+public interface RefreshTokenRepository extends CrudRepository<RefreshToken, Long> {
+
+    Optional<RefreshToken> findByToken(String token);
+
     @Query("SELECT * FROM refresh_tokens WHERE usuario_id = :usuarioId AND activo = true ORDER BY fecha_creacion DESC")
-    Flux<RefreshToken> findActiveTokensByUsuarioId(Long usuarioId);
-    
-    /**
-     * Revoca todos los tokens de un usuario
-     */
+    List<RefreshToken> findActiveTokensByUsuarioId(Long usuarioId);
+
+    @Modifying
     @Query("UPDATE refresh_tokens SET activo = false WHERE usuario_id = :usuarioId")
-    Mono<Void> revokeAllTokensByUsuarioId(Long usuarioId);
-    
-    /**
-     * Elimina tokens expirados
-     */
+    void revokeAllTokensByUsuarioId(Long usuarioId);
+
+    @Modifying
     @Query("DELETE FROM refresh_tokens WHERE fecha_expiracion < CURRENT_TIMESTAMP")
-    Mono<Void> deleteExpiredTokens();
-    
-    /**
-     * Busca token válido por token y usuario
-     */
-    @Query("SELECT * FROM refresh_tokens WHERE token = :token AND usuario_id = :usuarioId AND activo = true AND fecha_expiracion > CURRENT_TIMESTAMP")
-    Mono<RefreshToken> findValidTokenByTokenAndUsuarioId(String token, Long usuarioId);
-    
-    /**
-     * Cuenta tokens activos de un usuario
-     */
-    @Query("SELECT COUNT(*) FROM refresh_tokens WHERE usuario_id = :usuarioId AND activo = true")
-    Mono<Long> countActiveTokensByUsuarioId(Long usuarioId);
-    
-    /**
-     * Busca tokens por IP address
-     */
-    @Query("SELECT * FROM refresh_tokens WHERE ip_address = :ipAddress AND activo = true")
-    Flux<RefreshToken> findActiveTokensByIpAddress(String ipAddress);
+    void deleteExpiredTokens();
+
+    Optional<RefreshToken> findFirstByTokenAndUsuarioIdAndActivoTrueAndFechaExpiracionAfter(String token, Long usuarioId, LocalDateTime fecha);
+
+    long countByUsuarioIdAndActivoTrue(Long usuarioId);
+
+    List<RefreshToken> findByIpAddressAndActivoTrue(String ipAddress);
 }

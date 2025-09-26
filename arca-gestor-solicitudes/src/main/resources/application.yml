@@ -4,14 +4,16 @@ server:
 spring:
   application:
     name: arca-gestor-solicitudes
-  webflux:
-    base-path: /
-    webclient:
-      max-in-memory-size: 1MB
-  r2dbc:
-    url: r2dbc:h2:mem:///gestor_db?options=DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+  main:
+    web-application-type: servlet
+  datasource:
+    url: jdbc:h2:mem:gestor_db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     username: sa
-    password: 
+    password: ""
+    driver-class-name: org.h2.Driver
+  sql:
+    init:
+      mode: never
   h2:
     console:
       enabled: true
@@ -96,7 +98,7 @@ resilience4j:
         recordExceptions:
           - java.io.IOException
           - java.util.concurrent.TimeoutException
-          - org.springframework.web.reactive.function.client.WebClientException
+          - org.springframework.web.client.RestClientException
       proveedor-externo-service:
         registerHealthIndicator: true
         slidingWindowSize: 8
@@ -120,4 +122,4 @@ resilience4j:
 logging:
   level:
     com.arka.gestorsolicitudes: DEBUG
-    reactor.netty: INFO
+    org.springframework.jdbc.core: INFO

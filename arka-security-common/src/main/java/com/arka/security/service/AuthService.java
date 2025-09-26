@@ -8,12 +8,11 @@ import com.arka.security.dto.AuthRequest;
 import com.arka.security.dto.AuthResponse;
 import com.arka.security.dto.RefreshTokenRequest;
 import com.arka.security.dto.RegisterRequest;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Mono;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.util.Optional;
 
 /**
  * Servicio de autenticación y autorización
@@ -21,155 +20,139 @@ import java.time.LocalDateTime;
 @Service
 public class AuthService {
     
-    @Autowired
-    private UsuarioRepository usuarioRepository;
-    
-    @Autowired
-    private RefreshTokenRepository refreshTokenRepository;
-    
-    @Autowired
-    private JwtService jwtService;
-    
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final UsuarioRepository usuarioRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder;
+
+    public AuthService(UsuarioRepository usuarioRepository,
+                       RefreshTokenRepository refreshTokenRepository,
+                       JwtService jwtService,
+                       PasswordEncoder passwordEncoder) {
+        this.usuarioRepository = usuarioRepository;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.jwtService = jwtService;
+        this.passwordEncoder = passwordEncoder;
+    }
     
     /**
      * Registra un nuevo usuario
      */
-    public Mono<AuthResponse> register(RegisterRequest request) {
-        return usuarioRepository.existsByUsername(request.getUsername())
-                .flatMap(usernameExists -> {
-                    if (usernameExists) {
-                        return Mono.error(new RuntimeException("El username ya existe"));
-                    }
-                    
-                    return usuarioRepository.existsByEmail(request.getEmail())
-                            .flatMap(emailExists -> {
-                                if (emailExists) {
-                                    return Mono.error(new RuntimeException("El email ya está registrado"));
-                                }
-                                
-                                // Crear nuevo usuario
-                                Usuario usuario = new Usuario(
-                                        request.getUsername(),
-                                        request.getEmail(),
-                                        passwordEncoder.encode(request.getPassword()),
-                                        request.getNombreCompleto(),
-                                        Usuario.Rol.USUARIO // Por defecto usuarios regulares
-                                );
-                                
-                                return usuarioRepository.save(usuario)
-                                        .flatMap(this::generateAuthResponse);
-                            });
-                });
+    @Transactional
+    public AuthResponse register(RegisterRequest request) {
+        if (usuarioRepository.existsByUsername(request.getUsername())) {
+            throw new AuthenticationException("El username ya existe");
+        }
+
+        if (usuarioRepository.existsByEmail(request.getEmail())) {
+            throw new AuthenticationException("El email ya está registrado");
+        }
+
+        Usuario usuario = new Usuario(
+                request.getUsername(),
+                request.getEmail(),
+                passwordEncoder.encode(request.getPassword()),
+                request.getNombreCompleto(),
+                Usuario.Rol.USUARIO
+        );
+
+        Usuario saved = usuarioRepository.save(usuario);
+        return generateAuthResponse(saved);
     }
     
     /**
      * Autentica un usuario
      */
-    public Mono<AuthResponse> authenticate(AuthRequest request) {
-        return usuarioRepository.findByUsernameOrEmail(request.getIdentifier())
-                .switchIfEmpty(Mono.error(new RuntimeException("Usuario no encontrado")))
-                .flatMap(usuario -> {
-                    if (!passwordEncoder.matches(request.getPassword(), usuario.getPassword())) {
-                        return Mono.error(new RuntimeException("Credenciales incorrectas"));
-                    }
-                    
-                    if (!usuario.isActivo()) {
-                        return Mono.error(new RuntimeException("Usuario inactivo"));
-                    }
-                    
-                    // Actualizar último acceso
-                    usuario.actualizarUltimoAcceso();
-                    return usuarioRepository.save(usuario)
-                            .flatMap(this::generateAuthResponse);
-                });
+    @Transactional
+    public AuthResponse authenticate(AuthRequest request) {
+        Usuario usuario = findByUsernameOrEmail(request.getIdentifier())
+                .orElseThrow(() -> new AuthenticationException("Usuario no encontrado"));
+
+        if (!passwordEncoder.matches(request.getPassword(), usuario.getPassword())) {
+            throw new AuthenticationException("Credenciales incorrectas");
+        }
+
+        if (!usuario.isActivo()) {
+            throw new AuthenticationException("Usuario inactivo");
+        }
+
+        usuario.actualizarUltimoAcceso();
+        usuarioRepository.save(usuario);
+        return generateAuthResponse(usuario);
     }
     
     /**
      * Refresca el token usando refresh token
      */
-    public Mono<AuthResponse> refreshToken(RefreshTokenRequest request) {
-        return refreshTokenRepository.findByToken(request.getRefreshToken())
-                .switchIfEmpty(Mono.error(new RuntimeException("Refresh token no válido")))
-                .flatMap(refreshToken -> {
-                    if (!refreshToken.esValido()) {
-                        return Mono.error(new RuntimeException("Refresh token expirado o inválido"));
-                    }
-                    
-                    return usuarioRepository.findById(refreshToken.getUsuarioId())
-                            .switchIfEmpty(Mono.error(new RuntimeException("Usuario no encontrado")))
-                            .flatMap(usuario -> {
-                                if (!usuario.isActivo()) {
-                                    return Mono.error(new RuntimeException("Usuario inactivo"));
-                                }
-                                
-                                // Generar nuevo access token
-                                String newAccessToken = jwtService.generateToken(usuario);
-                                
-                                // Opcionalmente, generar nuevo refresh token
-                                String newRefreshToken = jwtService.generateRefreshToken(usuario);
-                                
-                                // Revocar el refresh token usado
-                                refreshToken.revocar();
-                                
-                                // Crear nuevo refresh token
-                                RefreshToken newRefreshTokenEntity = RefreshToken.crear(
-                                        usuario.getId(), 
-                                        7 // 7 días
-                                );
-                                newRefreshTokenEntity.setToken(newRefreshToken);
-                                
-                                return refreshTokenRepository.save(refreshToken)
-                                        .then(refreshTokenRepository.save(newRefreshTokenEntity))
-                                        .then(Mono.just(AuthResponse.builder()
-                                                .accessToken(newAccessToken)
-                                                .refreshToken(newRefreshToken)
-                                                .tokenType("Bearer")
-                                                .expiresIn(jwtService.getExpirationTime())
-                                                .usuario(toUserInfo(usuario))
-                                                .build()));
-                            });
+    @Transactional
+    public AuthResponse refreshToken(RefreshTokenRequest request) {
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(request.getRefreshToken())
+                .orElseThrow(() -> new AuthenticationException("Refresh token no válido"));
+
+        if (!refreshToken.esValido()) {
+            throw new AuthenticationException("Refresh token expirado o inválido");
+        }
+
+        Usuario usuario = usuarioRepository.findById(refreshToken.getUsuarioId())
+                .orElseThrow(() -> new AuthenticationException("Usuario no encontrado"));
+
+        if (!usuario.isActivo()) {
+            throw new AuthenticationException("Usuario inactivo");
+        }
+
+        String newAccessToken = jwtService.generateToken(usuario);
+        String newRefreshToken = jwtService.generateRefreshToken(usuario);
+
+        refreshToken.revocar();
+        refreshTokenRepository.save(refreshToken);
+
+        RefreshToken newRefreshTokenEntity = RefreshToken.crear(usuario.getId(), 7);
+        newRefreshTokenEntity.setToken(newRefreshToken);
+        refreshTokenRepository.save(newRefreshTokenEntity);
+
+        return AuthResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(newRefreshToken)
+                .tokenType("Bearer")
+                .expiresIn(jwtService.getExpirationTime())
+                .usuario(toUserInfo(usuario))
+                .build();
+    }
+
+    @Transactional
+    public void logout(String refreshToken) {
+        refreshTokenRepository.findByToken(refreshToken)
+                .ifPresent(token -> {
+                    token.revocar();
+                    refreshTokenRepository.save(token);
                 });
     }
-    
-    /**
-     * Cierra sesión revocando el refresh token
-     */
-    public Mono<Void> logout(String refreshToken) {
-        return refreshTokenRepository.findByToken(refreshToken)
-                .flatMap(token -> {
-                    token.revocar();
-                    return refreshTokenRepository.save(token);
-                })
-                .then();
+
+    @Transactional
+    public void logoutAll(Long usuarioId) {
+        refreshTokenRepository.revokeAllTokensByUsuarioId(usuarioId);
     }
-    
-    /**
-     * Cierra todas las sesiones de un usuario
-     */
-    public Mono<Void> logoutAll(Long usuarioId) {
-        return refreshTokenRepository.revokeAllTokensByUsuarioId(usuarioId);
-    }
-    
-    /**
-     * Genera respuesta de autenticación completa
-     */
-    private Mono<AuthResponse> generateAuthResponse(Usuario usuario) {
+
+    private AuthResponse generateAuthResponse(Usuario usuario) {
         String accessToken = jwtService.generateToken(usuario);
         String refreshToken = jwtService.generateRefreshToken(usuario);
-        
-        RefreshToken refreshTokenEntity = RefreshToken.crear(usuario.getId(), 7); // 7 días
+
+        RefreshToken refreshTokenEntity = RefreshToken.crear(usuario.getId(), 7);
         refreshTokenEntity.setToken(refreshToken);
-        
-        return refreshTokenRepository.save(refreshTokenEntity)
-                .then(Mono.just(AuthResponse.builder()
-                        .accessToken(accessToken)
-                        .refreshToken(refreshToken)
-                        .tokenType("Bearer")
-                        .expiresIn(jwtService.getExpirationTime())
-                        .usuario(toUserInfo(usuario))
-                        .build()));
+        refreshTokenRepository.save(refreshTokenEntity);
+
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .tokenType("Bearer")
+                .expiresIn(jwtService.getExpirationTime())
+                .usuario(toUserInfo(usuario))
+                .build();
+    }
+
+    private Optional<Usuario> findByUsernameOrEmail(String identifier) {
+        Optional<Usuario> byUsername = usuarioRepository.findByUsername(identifier);
+        return byUsername.isPresent() ? byUsername : usuarioRepository.findByEmail(identifier);
     }
     
     /**
@@ -190,25 +173,17 @@ public class AuthService {
                 .build();
     }
     
-    /**
-     * Valida un token de acceso
-     */
-    public Mono<Boolean> validateToken(String token, Usuario usuario) {
-        return Mono.fromCallable(() -> jwtService.isTokenValid(token, usuario));
+    public boolean validateToken(String token, Usuario usuario) {
+        return jwtService.isTokenValid(token, usuario);
     }
-    
-    /**
-     * Obtiene información del usuario desde el token
-     */
-    public Mono<Usuario> getUserFromToken(String token) {
-        return Mono.fromCallable(() -> jwtService.extractUsername(token))
-                .flatMap(usuarioRepository::findByUsername);
+
+    public Optional<Usuario> getUserFromToken(String token) {
+        String username = jwtService.extractUsername(token);
+        return usuarioRepository.findByUsername(username);
     }
-    
-    /**
-     * Limpia tokens expirados (tarea de mantenimiento)
-     */
-    public Mono<Void> cleanupExpiredTokens() {
-        return refreshTokenRepository.deleteExpiredTokens();
+
+    @Transactional
+    public void cleanupExpiredTokens() {
+        refreshTokenRepository.deleteExpiredTokens();
     }
 }

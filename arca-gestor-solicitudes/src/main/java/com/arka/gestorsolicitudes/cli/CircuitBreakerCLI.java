@@ -112,9 +112,8 @@ public class CircuitBreakerCLI implements CommandLineRunner {
         System.out.println("\n🔄 Calculando envío...");
         
         try {
-            CalculoEnvio resultado = calculoEnvioService
-                    .calcularEnvio(origen, destino, peso, dimensiones)
-                    .block();
+        CalculoEnvio resultado = calculoEnvioService
+            .calcularEnvio(origen, destino, peso, dimensiones);
             
             if (resultado != null) {
                 mostrarResultadoCalculo(resultado);
@@ -150,9 +149,8 @@ public class CircuitBreakerCLI implements CommandLineRunner {
         System.out.println("\n🔄 Ejecutando prueba con escenario: " + escenario);
         
         try {
-            CalculoEnvio resultado = calculoEnvioService
-                    .probarCircuitBreaker(escenario, origen, destino, peso)
-                    .block();
+        CalculoEnvio resultado = calculoEnvioService
+            .probarCircuitBreaker(escenario, origen, destino, peso);
             
             if (resultado != null) {
                 mostrarResultadoPrueba(resultado, escenario);
@@ -169,7 +167,7 @@ public class CircuitBreakerCLI implements CommandLineRunner {
         System.out.println("─────────────────────");
         
         try {
-            String estado = calculoEnvioService.obtenerEstadoCalculos().block();
+            String estado = calculoEnvioService.obtenerEstadoCalculos();
             System.out.println("✅ Estado: " + estado);
             System.out.println("🕐 Timestamp: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
         } catch (Exception e) {
@@ -195,9 +193,8 @@ public class CircuitBreakerCLI implements CommandLineRunner {
             try {
                 System.out.print("Llamada " + i + ": ");
                 
-                CalculoEnvio calculo = calculoEnvioService
-                        .probarCircuitBreaker(escenario, "Lima", "Arequipa", BigDecimal.valueOf(1.0))
-                        .block();
+        CalculoEnvio calculo = calculoEnvioService
+            .probarCircuitBreaker(escenario, "Lima", "Arequipa", BigDecimal.valueOf(1.0));
                 
                 if (calculo != null) {
                     switch (calculo.getEstado()) {
