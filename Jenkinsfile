@@ -18,6 +18,10 @@ pipeline {
         // Application Configuration
         SPRING_PROFILE = 'aws'
         GRADLE_HOME = '/opt/gradle/latest'
+    AWS_DB_HOST = '172.31.48.25'
+    AWS_DB_NAME = 'arka-base'
+    AWS_DB_USERNAME = 'admin'
+    AWS_DB_PASSWORD = 'Koke1988*'
         
         // Nexus Configuration
         NEXUS_WEB = 'http://3.14.80.146:8081'
@@ -65,15 +69,13 @@ pipeline {
                 script {
                     echo 'Ejecutando análisis SonarQube...'
                     sh '''
-                        cd arkavalenzuela
+                        cd $WORKSPACE/arkavalenzuela
                         /opt/sonar/bin/sonar-scanner \\
-                            -Dsonar.projectKey=arka-microservices \\
-                            -Dsonar.projectName="ARKA Microservices" \\
-                            -Dsonar.sources=. \\
-                            -Dsonar.java.binaries=*/build/classes \\
-                            -Dsonar.exclusions="**/build/**,**/gradle/**,**/*.gradle" \\
-                            -Dsonar.host.url=$SONAR_HOST \\
-                            -Dsonar.login=sqp_6b873adbd1458354e6838be57d1700d9e697f231
+                        -Dsonar.projectKey=arka \\
+                        -Dsonar.sources=$WORKSPACE/arkavalenzuela/src \\
+                        -Dsonar.java.binaries=$WORKSPACE/arkavalenzuela/src/main/java \\
+                        -Dsonar.host.url=http://18.188.248.253:9000/ \\
+                        -Dsonar.login=sqp_6b873adbd1458354e6838be57d1700d9e697f231
                     '''
                 }
             }
@@ -183,20 +185,27 @@ pipeline {
                         
                         # Configurar DataSource para AWS
                         echo "🔧 Configurando DataSource para AWS..."
-                        run_cli --command="
-                            if (outcome != success) of /subsystem=datasources/data-source=ArkaDS:read-resource
-                                /subsystem=datasources/data-source=ArkaDS:add(
-                                    jndi-name=java:jboss/datasources/ArkaDS,
-                                    driver-name=mysql,
-                                    connection-url=jdbc:mysql://arka-db.cluster-xyz.us-east-1.rds.amazonaws.com:3306/arka_db,
-                                    user-name=arka_user,
-                                    password=arka_pass123,
-                                    min-pool-size=5,
-                                    max-pool-size=20,
-                                    enabled=true
-                                )
-                            end-if
-                        " 2>/dev/null || echo "DataSource ya existe"
+                        DB_HOST="${AWS_DB_HOST:-172.31.48.25}"
+                        DB_NAME="${AWS_DB_NAME:-arka-base}"
+                        DB_USER="${AWS_DB_USERNAME:-arka_user}"
+                        DB_PASSWORD="${AWS_DB_PASSWORD:-arka_pass123}"
+                        DB_CONNECTION_URL="jdbc:mysql://${DB_HOST}:3306/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+
+                        if run_cli --command="/subsystem=datasources/data-source=ArkaDS:read-resource" >/dev/null 2>&1; then
+                            echo "ℹ️ DataSource ArkaDS ya existe; actualizando configuración básica"
+                            run_cli --command="/subsystem=datasources/data-source=ArkaDS:write-attribute(name=connection-url,value=\"${DB_CONNECTION_URL}\")" 2>/dev/null || true
+                            run_cli --command="/subsystem=datasources/data-source=ArkaDS:write-attribute(name=user-name,value=\"${DB_USER}\")" 2>/dev/null || true
+                            run_cli --command="/subsystem=datasources/data-source=ArkaDS:write-attribute(name=password,value=\"${DB_PASSWORD}\")" 2>/dev/null || true
+                        else
+                            echo "➕ Creando DataSource ArkaDS apuntando a ${DB_HOST}/${DB_NAME}"
+                            run_cli --command="/subsystem=datasources/data-source=ArkaDS:add(jndi-name=java:jboss/datasources/ArkaDS,driver-name=mysql,connection-url=\"${DB_CONNECTION_URL}\",user-name=\"${DB_USER}\",password=\"${DB_PASSWORD}\",min-pool-size=5,max-pool-size=20,enabled=true)" || {
+                                echo "❌ Error creando DataSource ArkaDS"
+                                exit 1
+                            }
+                        fi
+
+                        run_cli --command="/subsystem=datasources/data-source=ArkaDS:enable" 2>/dev/null || true
+                        run_cli --command="/subsystem=datasources/data-source=ArkaDS:test-connection-in-pool" 2>/dev/null || echo "⚠️ No se pudo validar la conexión del pool"
                         
                         # System properties para AWS
                         run_cli --command="
