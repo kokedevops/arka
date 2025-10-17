@@ -19,6 +19,10 @@ spring:
       server:
         native:
           search-locations: classpath:/config,file:./config-repository,file:../config-repository
+        # Deshabilitar Git como backend predeterminado
+        git:
+          uri: file:./config-repository
+          default-label: master
 
 # Eureka Client Configuration for AWS
 eureka:

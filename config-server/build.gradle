@@ -48,7 +48,7 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-// Configuración para JAR ejecutable en WildFly
+// Configuración para JAR ejecutable
 jar {
     enabled = false
 }
@@ -56,6 +56,8 @@ jar {
 bootJar {
     enabled = true
     archiveFileName = 'config-server.jar'
+    archiveClassifier = ''
+    mainClass = 'com.arka.configserver.ConfigServerApplication'
     // Incluir todas las dependencias para ejecución independiente
     launchScript()
 }
@@ -73,16 +75,4 @@ dependencyManagement {
 
 tasks.named('test') {
     useJUnitPlatform()
-}
-
-// Bootjar configuration
-jar {
-    enabled = false
-    archiveClassifier = ''
-}
-
-bootJar {
-    enabled = true
-    archiveClassifier = ''
-    mainClass = 'com.arka.configserver.ConfigServerApplication'
 }
