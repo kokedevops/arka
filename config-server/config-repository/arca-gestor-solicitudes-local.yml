@@ -1,0 +1,62 @@
+# Arca Gestor Solicitudes - Local Profile Configuration
+
+server:
+  port: 8082
+
+spring:
+  application:
+    name: arca-gestor-solicitudes
+  
+  # MySQL Configuration (inherited from application-local.yml)
+  datasource:
+    url: jdbc:mysql://192.168.100.77:3306/arkavalenzuelabd
+    username: root
+    password: Koke1988****
+  
+  # Circuit Breaker Configuration
+  cloud:
+    circuitbreaker:
+      resilience4j:
+        enabled: true
+
+# Resilience4j Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      cotizadorService:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+
+# Eureka
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    hostname: localhost
+    prefer-ip-address: true
+
+# Management
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,circuitbreakers,circuitbreakerevents
+  endpoint:
+    health:
+      show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
+
+# Logging
+logging:
+  level:
+    com.arka.gestorsolicitudes: DEBUG
+    io.github.resilience4j: DEBUG

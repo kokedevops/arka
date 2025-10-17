@@ -1,0 +1,79 @@
+# Local Profile Configuration for API Gateway
+
+server:
+  port: 8085
+
+spring:
+  application:
+    name: api-gateway
+  
+  cloud:
+    gateway:
+      routes:
+        # Arca Cotizador Routes
+        - id: arca-cotizador
+          uri: lb://arca-cotizador
+          predicates:
+            - Path=/api/cotizador/**
+          filters:
+            - StripPrefix=2
+        
+        # Arca Gestor Solicitudes Routes
+        - id: arca-gestor-solicitudes
+          uri: lb://arca-gestor-solicitudes
+          predicates:
+            - Path=/api/gestor/**
+          filters:
+            - StripPrefix=2
+        
+        # Hello World Service Routes
+        - id: hello-world-service
+          uri: lb://hello-world-service
+          predicates:
+            - Path=/api/hello/**
+          filters:
+            - StripPrefix=2
+        
+        # Main Application Routes
+        - id: main-app
+          uri: lb://arkajvalenzuela
+          predicates:
+            - Path=/api/main/**
+          filters:
+            - StripPrefix=2
+      
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+
+# JWT Configuration
+jwt:
+  secret: arka-local-secret-key-2025-very-secure-key-for-jwt-tokens
+  expiration: 86400000  # 24 hours
+
+# Eureka
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+# Management
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,routes
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    com.arka.gateway: DEBUG

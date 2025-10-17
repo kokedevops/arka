@@ -5,9 +5,9 @@ spring:
     active: dev
   cloud:
     config:
-      uri: http://127.0.0.1:9090
-      # Para desarrollo local, comentar la línea de arriba y descomentar la de abajo:
-      # uri: http://localhost:8888
+      uri: http://localhost:8888
+      # Para desarrollo local con puerto alternativo:
+      # uri: http://127.0.0.1:9090
       username: config-client
       password: arka-client-2025
       fail-fast: false

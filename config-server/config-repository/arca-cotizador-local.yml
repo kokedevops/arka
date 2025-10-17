@@ -1,0 +1,38 @@
+# Arca Cotizador - Local Profile Configuration
+
+server:
+  port: 8081
+
+spring:
+  application:
+    name: arca-cotizador
+  
+  # MySQL Configuration (inherited from application-local.yml)
+  datasource:
+    url: jdbc:mysql://192.168.100.77:3306/arkavalenzuelabd
+    username: root
+    password: Koke1988****
+
+# Eureka
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    hostname: localhost
+    prefer-ip-address: true
+
+# Management
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    com.arka.cotizador: DEBUG

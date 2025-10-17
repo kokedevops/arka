@@ -18,6 +18,8 @@
 | Documento | Descripción | Uso |
 |-----------|-------------|-----|
 | **[🚀 Inicio Rápido](QUICK-START-GUIDE.md)** | Levanta el proyecto en 5 minutos | Desarrollo |
+| **[🏠 Despliegue Local](DEPLOYMENT-GUIDE-LOCAL.md)** | Configuración ambiente local | **LOCAL** |
+| **[☁️ Despliegue AWS](DEPLOYMENT-GUIDE.md)** | Configuración ambiente AWS | **CLOUD** |
 | **[📖 Guía Completa](GUIA_PASO_A_PASO_COMPLETA.md)** | Documentación técnica detallada | Desarrollo |
 | **[🐳 Despliegue Docker](DOCKER-DEPLOYMENT-GUIDE.md)** | Containerización completa | DevOps |
 

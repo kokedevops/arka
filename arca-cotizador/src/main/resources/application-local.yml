@@ -1,0 +1,54 @@
+# Local Profile Configuration for Arca Cotizador
+
+server:
+  port: 8081
+
+spring:
+  application:
+    name: arca-cotizador
+  
+  # MySQL Configuration
+  datasource:
+    url: jdbc:mysql://192.168.100.77:3306/arkavalenzuelabd
+    username: root
+    password: Koke1988****
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+# Eureka
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    hostname: localhost
+    prefer-ip-address: true
+
+# Management
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    com.arka.cotizador: DEBUG
+    org.springframework.web: INFO
