@@ -26,8 +26,8 @@ pipeline {
             steps {
                 script {
                     echo 'Clonando el código'
-                    sh 'rm -rf arkavalenzuela'
-                    sh 'git clone https://github.com/kokedevops/arkavalenzuela.git -b proyecto-entrega'
+                    sh 'rm -rf arka'
+                    sh 'git clone https://github.com/kokedevops/arka.git -b proyecto-entrega'
                 }
             }
         }
@@ -36,7 +36,7 @@ pipeline {
             steps {
                 script {
                     echo 'Compilando servicios secuencialmente'
-                    dir('arkavalenzuela') {
+                    dir('arka') {
                         // Usar el script de build secuencial
                         sh 'chmod +x scripts/build-secuencial.sh'
                         sh './scripts/build-secuencial.sh'

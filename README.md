@@ -1,4 +1,4 @@
-# 🏢 ARKA VALENZUELA - PLATAFORMA E-COMMERCE MICROSERVICIOS
+# 🏢 ARKA - PLATAFORMA E-COMMERCE MICROSERVICIOS
 
 <div align="center">
   <img src="https://img.shields.io/badge/Spring%20Boot-3.2.3-brightgreen" alt="Spring Boot"/>
@@ -36,7 +36,7 @@
 
 ---
 
-**ARKA Valenzuela** es una **plataforma e-commerce empresarial** construida con **arquitectura de microservicios**, implementando patrones modernos de desarrollo, seguridad robusta y tecnologías cloud-native para máxima escalabilidad y mantenibilidad.
+**ARKA** es una **plataforma e-commerce empresarial** construida con **arquitectura de microservicios**, implementando patrones modernos de desarrollo, seguridad robusta y tecnologías cloud-native para máxima escalabilidad y mantenibilidad.
 
 ✅ **Arquitectura Hexagonal + DDD** - Separación clara de responsabilidades  
 ✅ **Programación Reactiva** - WebFlux con Mono/Flux  
@@ -210,8 +210,8 @@ GET    /analytics/productos-populares     # Productos más vendidos
 
 #### 1️⃣ **Clonar el repositorio**
 ```bash
-git clone https://github.com/kokedevops/arkavalenzuela.git
-cd arkavalenzuela
+git clone https://github.com/kokedevops/arka.git
+cd arka
 ```
 
 #### 2️⃣ **Ejecutar con Docker Compose (RECOMENDADO)**
@@ -563,7 +563,7 @@ Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](L
 
 **Arka Valenzuela**
 - 🌐 GitHub: [@kokedevops](https://github.com/kokedevops)
-- 📧 Email: desarrollo@arkavalenzuela.com
+- 📧 Email: desarrollo@arka.com
 - 💼 LinkedIn: [arka-valenzuela](https://linkedin.com/in/arka-valenzuela)
 
 ---
@@ -581,6 +581,6 @@ Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](L
 
 ### ⭐ **¡Si te gusta el proyecto, dale una estrella!** ⭐
 
-**[⬆ Volver al inicio](#-arka-valenzuela---sistema-de-microservicios-e-commerce)**
+**[⬆ Volver al inicio](#-arka---sistema-de-microservicios-e-commerce)**
 
 </div>

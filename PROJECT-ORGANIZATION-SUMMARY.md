@@ -68,7 +68,7 @@
 ## 🗂️ Nueva Estructura Recomendada
 
 ```
-📁 arkavalenzuela/
+📁 arka/
 ├── 📄 .gitignore ✅ CREADO
 ├── 📄 DEPLOYMENT-GUIDE.md ✅ CREADO  
 ├── 📄 INSTALLATION-GUIDE.md ✅ CREADO

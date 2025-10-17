@@ -680,7 +680,7 @@ public CotizacionRepositoryPort cotizacionRepositoryApi() {
 @Test
 void domain_no_debe_depender_de_infrastructure() {
     JavaClasses classes = new ClassFileImporter()
-        .importPackages("com.arka.arkavalenzuela");
+        .importPackages("com.arka.arka");
     
     ArchRule rule = classes()
         .that().resideInAPackage("..domain..")
@@ -694,7 +694,7 @@ void domain_no_debe_depender_de_infrastructure() {
 @Test
 void application_no_debe_depender_de_infrastructure() {
     JavaClasses classes = new ClassFileImporter()
-        .importPackages("com.arka.arkavalenzuela");
+        .importPackages("com.arka.arka");
     
     ArchRule rule = classes()
         .that().resideInAPackage("..application..")

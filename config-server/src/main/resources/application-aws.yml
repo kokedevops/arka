@@ -49,4 +49,4 @@ management:
 logging:
   level:
     org.springframework.cloud.config: INFO
-    com.arkavalenzuela: INFO
+    com.arka: INFO

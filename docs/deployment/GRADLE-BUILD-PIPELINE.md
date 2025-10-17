@@ -132,7 +132,7 @@ He configurado un **pipeline completo** de build con el task `runMain` que ejecu
 🎉 ====================================================
 
 📊 RESUMEN DE ARTEFACTOS GENERADOS:
-   • JAR Principal: build/libs/arkavalenzuela-2-0.0.1-SNAPSHOT.jar
+   • JAR Principal: build/libs/arka-2-0.0.1-SNAPSHOT.jar
    • Reportes de Tests: build/reports/tests/test/index.html
    • Cobertura HTML: build/reports/jacoco/aggregate/html/index.html
    • Cobertura XML: build/reports/jacoco/aggregate/jacocoTestReport.xml
@@ -152,9 +152,9 @@ He configurado un **pipeline completo** de build con el task `runMain` que ejecu
 ### 📦 **Ejecutables:**
 ```
 build/libs/
-├── arkavalenzuela-2-0.0.1-SNAPSHOT.jar     # JAR principal
-├── arkavalenzuela-2-0.0.1-SNAPSHOT.war     # WAR para deploy
-└── arkavalenzuela-2-0.0.1-SNAPSHOT-plain.jar  # JAR sin dependencias
+├── arka-2-0.0.1-SNAPSHOT.jar     # JAR principal
+├── arka-2-0.0.1-SNAPSHOT.war     # WAR para deploy
+└── arka-2-0.0.1-SNAPSHOT-plain.jar  # JAR sin dependencias
 ```
 
 ### 📊 **Reportes:**

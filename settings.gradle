@@ -1,4 +1,4 @@
-rootProject.name = 'arkajvalenzuela'
+rootProject.name = 'arka'
 
 // Módulos del proyecto
 include 'arca-cotizador'

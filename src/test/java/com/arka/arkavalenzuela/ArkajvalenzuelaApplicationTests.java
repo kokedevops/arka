@@ -1,4 +1,4 @@
-package com.arka.arkavalenzuela;
+package com.arka.arka;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

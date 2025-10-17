@@ -53,7 +53,7 @@ El **Config Server** es un componente centralizado de Spring Cloud que permite:
 arkajvalenzuela/
 ├── config-server/                  # 🏗️ Config Server Module
 │   ├── src/main/java/
-│   │   └── com/arkavalenzuela/configserver/
+│   │   └── com/arka/configserver/
 │   │       ├── ConfigServerApplication.java
 │   │       └── config/SecurityConfig.java
 │   ├── src/main/resources/

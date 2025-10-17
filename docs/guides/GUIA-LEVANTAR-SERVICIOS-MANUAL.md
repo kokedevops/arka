@@ -95,7 +95,7 @@ mongo mongodb://localhost:27017
 ### 1. **Config Server** 📋
 ```powershell
 # Terminal 1 - Config Server
-cd C:\Users\valen\arkavalenzuela-1
+cd C:\Users\valen\arka-1
 ./gradlew :config-server:bootRun
 
 # Verificar en navegador: http://localhost:8888/actuator/health
@@ -107,7 +107,7 @@ cd C:\Users\valen\arkavalenzuela-1
 ### 2. **Eureka Server** 🌐
 ```powershell
 # Terminal 2 - Eureka Server
-cd C:\Users\valen\arkavalenzuela-1
+cd C:\Users\valen\arka-1
 ./gradlew :eureka-server:bootRun
 
 # Verificar en navegador: http://localhost:8761
@@ -119,7 +119,7 @@ cd C:\Users\valen\arkavalenzuela-1
 ### 3. **API Gateway** 🚪
 ```powershell
 # Terminal 3 - API Gateway
-cd C:\Users\valen\arkavalenzuela-1
+cd C:\Users\valen\arka-1
 ./gradlew :api-gateway:bootRun
 
 # Verificar: http://localhost:8080/actuator/health
@@ -133,7 +133,7 @@ cd C:\Users\valen\arkavalenzuela-1
 ### 4. **Hello World Service** 👋
 ```powershell
 # Terminal 4 - Hello World Service
-cd C:\Users\valen\arkavalenzuela-1
+cd C:\Users\valen\arka-1
 ./gradlew :hello-world-service:bootRun
 
 # Puerto: 8081
@@ -144,7 +144,7 @@ cd C:\Users\valen\arkavalenzuela-1
 ### 5. **Arca Cotizador** 💰
 ```powershell
 # Terminal 5 - Arca Cotizador
-cd C:\Users\valen\arkavalenzuela-1
+cd C:\Users\valen\arka-1
 ./gradlew :arca-cotizador:bootRun
 
 # Puerto: 8082
@@ -155,7 +155,7 @@ cd C:\Users\valen\arkavalenzuela-1
 ### 6. **Arca Gestor Solicitudes** 📝
 ```powershell
 # Terminal 6 - Arca Gestor Solicitudes
-cd C:\Users\valen\arkavalenzuela-1
+cd C:\Users\valen\arka-1
 ./gradlew :arca-gestor-solicitudes:bootRun
 
 # Puerto: 8083
@@ -170,7 +170,7 @@ cd C:\Users\valen\arkavalenzuela-1
 ### 7. **Arca Reportes** 📊
 ```powershell
 # Terminal 7 - Arca Reportes
-cd C:\Users\valen\arkavalenzuela-1
+cd C:\Users\valen\arka-1
 
 # Verificar que MongoDB esté funcionando
 mongo --eval "db.runCommand({ping: 1})"
@@ -186,7 +186,7 @@ mongo --eval "db.runCommand({ping: 1})"
 ### 8. **Saga State Tracker** 🔄
 ```powershell
 # Terminal 8 - Saga State Tracker
-cd C:\Users\valen\arkavalenzuela-1
+cd C:\Users\valen\arka-1
 
 # Verificar MongoDB
 mongo saga_tracking --eval "db.stats()"

@@ -41,7 +41,7 @@ chmod +x deploy-docker.sh
 ```bash
 # 1. Clonar el repositorio
 git clone <tu-repositorio>
-cd arkavalenzuela
+cd arka
 
 # 2. Construir las imágenes
 docker-compose build --no-cache

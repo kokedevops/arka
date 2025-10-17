@@ -44,4 +44,4 @@ management:
 logging:
   level:
     org.springframework.cloud.config: DEBUG
-    com.arkavalenzuela: DEBUG
+    com.arka: DEBUG

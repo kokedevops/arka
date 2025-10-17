@@ -918,7 +918,7 @@ Resources:
     Properties:
       TopicArn: !Ref NotificacionesTopic
       Protocol: email
-      Endpoint: admin@arkavalenzuela.com
+      Endpoint: admin@arka.com
       FilterPolicy:
         priority: ['critical', 'high']
 

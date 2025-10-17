@@ -510,7 +510,7 @@ jobs:
       (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
     environment:
       name: development
-      url: https://dev.arkavalenzuela.com
+      url: https://dev.arka.com
 
     steps:
       - name: 📥 Checkout code
@@ -551,7 +551,7 @@ jobs:
       github.ref == 'refs/heads/main'
     environment:
       name: staging
-      url: https://staging.arkavalenzuela.com
+      url: https://staging.arka.com
 
     steps:
       - name: 📥 Checkout code
@@ -596,7 +596,7 @@ jobs:
       github.ref == 'refs/heads/main'
     environment:
       name: production
-      url: https://arkavalenzuela.com
+      url: https://arka.com
 
     steps:
       - name: 📥 Checkout code

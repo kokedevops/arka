@@ -66,7 +66,7 @@ security:
 # Logging Configuration (común)
 logging:
   level:
-    com.arkavalenzuela: DEBUG
+    com.arka: DEBUG
     org.springframework.security: INFO
     org.springframework.cloud: INFO
     org.springframework.web: INFO

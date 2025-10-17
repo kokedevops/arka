@@ -1403,7 +1403,7 @@ jobs:
       (github.event.inputs.action == 'apply' || github.event.inputs.action == '' || github.event_name == 'push')
     environment:
       name: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
-      url: https://${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}.arkavalenzuela.com
+      url: https://${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}.arka.com
 
     strategy:
       matrix:

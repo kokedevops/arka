@@ -402,8 +402,8 @@ task jacocoAggregatedReport(type: JacocoReport) {
 // 🔍 Configuración SonarQube
 sonarqube {
 	properties {
-		property "sonar.projectKey", "arkavalenzuela"
-		property "sonar.projectName", "Arka Valenzuela"
+		property "sonar.projectKey", "arka"
+		property "sonar.projectName", "Arka"
 		property "sonar.projectVersion", version
 		property "sonar.sourceEncoding", "UTF-8"
 		property "sonar.sources", "src/main/java"

@@ -11,9 +11,9 @@ Plataforma de microservicios basada en Spring Boot 3.2.3 y Spring Cloud para la 
 
 ### Configuración de Base de Datos
 ```sql
-CREATE DATABASE arkavalenzuelabd CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE arkabd CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER 'arka_user'@'localhost' IDENTIFIED BY 'arka_pass123';
-GRANT ALL PRIVILEGES ON arkavalenzuelabd.* TO 'arka_user'@'localhost';
+GRANT ALL PRIVILEGES ON arkabd.* TO 'arka_user'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
@@ -45,7 +45,7 @@ FLUSH PRIVILEGES;
 ## 📁 Estructura del Proyecto
 
 ```
-arkavalenzuela-2/
+arka-2/
 ├── api-gateway/           # API Gateway (Spring Cloud Gateway)
 ├── arca-cotizador/        # Microservicio de Cotizaciones  
 ├── arca-gestor-solicitudes/ # Microservicio Gestor de Solicitudes

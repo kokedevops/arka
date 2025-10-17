@@ -284,7 +284,7 @@ groups:
         annotations:
           summary: "High CPU usage on {{ $labels.instance }}"
           description: "CPU usage is above 80% for more than 5 minutes on {{ $labels.instance }}"
-          runbook: "https://runbooks.arkavalenzuela.com/cpu-high"
+          runbook: "https://runbooks.arka.com/cpu-high"
 
       - alert: HighMemoryUsage
         expr: |
@@ -323,7 +323,7 @@ groups:
         annotations:
           summary: "Service {{ $labels.job }} is down"
           description: "Service {{ $labels.job }} has been down for more than 1 minute"
-          runbook: "https://runbooks.arkavalenzuela.com/service-down"
+          runbook: "https://runbooks.arka.com/service-down"
 
       - alert: HighErrorRate
         expr: |
@@ -384,7 +384,7 @@ groups:
         annotations:
           summary: "High sales volume detected"
           description: "Sales rate is {{ $value }} sales/minute, consider scaling"
-          runbook: "https://runbooks.arkavalenzuela.com/high-traffic"
+          runbook: "https://runbooks.arka.com/high-traffic"
 
       - alert: AnniversarySalesSpike
         expr: |
@@ -397,7 +397,7 @@ groups:
         annotations:
           summary: "Anniversary sales spike detected!"
           description: "Sales rate is {{ $value }} sales/minute, anniversary scenario activated"
-          runbook: "https://runbooks.arkavalenzuela.com/anniversary-scenario"
+          runbook: "https://runbooks.arka.com/anniversary-scenario"
 
   # ===========================
   # SLO ALERTS
@@ -442,7 +442,7 @@ groups:
         annotations:
           summary: "Shipping service is DOWN"
           description: "Shipping service has been down for 30 seconds"
-          runbook: "https://runbooks.arkavalenzuela.com/shipping-down"
+          runbook: "https://runbooks.arka.com/shipping-down"
 
       - alert: ShippingPeakHourFailure
         expr: |
@@ -1017,7 +1017,7 @@ data:
     
     ## 📈 Monitoring Dashboard
     ```
-    URL: https://grafana.arkavalenzuela.com/d/anniversary
+    URL: https://grafana.arka.com/d/anniversary
     Panels:
     - Real-time sales counter
     - Resource utilization heatmap
@@ -1185,7 +1185,7 @@ groups:
         annotations:
           summary: "🚨 Shipping service DOWN"
           description: "Shipping service unavailable - immediate action required"
-          runbook: "https://runbooks.arkavalenzuela.com/shipping-down"
+          runbook: "https://runbooks.arka.com/shipping-down"
           
       - alert: ShippingPeakHourCritical
         expr: |

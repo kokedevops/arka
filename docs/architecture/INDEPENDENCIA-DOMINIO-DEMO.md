@@ -365,7 +365,7 @@ spring:
   profiles:
     active: mysql
   datasource:
-    url: jdbc:mysql://localhost:3306/arkavalenzuela
+    url: jdbc:mysql://localhost:3306/arka
     username: arka_user
     password: arka_pass
   jpa:
@@ -639,7 +639,7 @@ notification:
 
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/arkavalenzuela
+    url: jdbc:mysql://localhost:3306/arka
     
 # application-api-terceros.yml  
 storage:
@@ -660,7 +660,7 @@ notification:
 spring:
   data:
     mongodb:
-      uri: mongodb://localhost:27017/arkavalenzuela
+      uri: mongodb://localhost:27017/arka
 ```
 
 ### 🔄 **Intercambio Dinámico**
@@ -792,7 +792,7 @@ public class DynamicCotizacionService {
 @Test
 void domain_debe_ser_independiente_de_infrastructure() {
     JavaClasses classes = new ClassFileImporter()
-        .importPackages("com.arka.arkavalenzuela");
+        .importPackages("com.arka.arka");
         
     ArchRule rule = classes()
         .that().resideInAPackage("..domain..")
@@ -808,7 +808,7 @@ void domain_debe_ser_independiente_de_infrastructure() {
 @Test
 void adapters_deben_implementar_puertos() {
     JavaClasses classes = new ClassFileImporter()
-        .importPackages("com.arka.arkavalenzuela");
+        .importPackages("com.arka.arka");
         
     ArchRule rule = classes()
         .that().resideInAPackage("..adapter..")

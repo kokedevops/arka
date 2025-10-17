@@ -236,9 +236,9 @@
 ## 📞 **SOPORTE Y CONTRIBUCIÓN**
 
 ### 🔗 **Enlaces Útiles**
-- **GitHub Repository**: https://github.com/kokedevops/arkavalenzuela
-- **Issues**: https://github.com/kokedevops/arkavalenzuela/issues
-- **Discussions**: https://github.com/kokedevops/arkavalenzuela/discussions
+-- **GitHub Repository**: https://github.com/kokedevops/arka
+-- **Issues**: https://github.com/kokedevops/arka/issues
+-- **Discussions**: https://github.com/kokedevops/arka/discussions
 
 ### 💬 **Contribuir a la Documentación**
 1. Fork del repositorio

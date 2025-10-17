@@ -42,7 +42,7 @@
 #### **Método 2: URL directa**
 ```bash
 # Importar desde GitHub (cuando esté disponible)
-https://raw.githubusercontent.com/kokedevops/arkavalenzuela/main/docs/postman/collection.json
+https://raw.githubusercontent.com/kokedevops/arka/main/docs/postman/collection.json
 ```
 
 ### ⚙️ **Configurar Environment**
@@ -678,8 +678,8 @@ pm.globals.set("averageResponseTime", metrics.averageResponseTime);
 - **Postman Learning**: https://learning.postman.com/
 
 ### 💬 **Comunidad**
-- **Issues**: https://github.com/kokedevops/arkavalenzuela/issues
-- **Discussions**: https://github.com/kokedevops/arkavalenzuela/discussions
+- **Issues**: https://github.com/kokedevops/arka/issues
+- **Discussions**: https://github.com/kokedevops/arka/discussions
 
 ---
 

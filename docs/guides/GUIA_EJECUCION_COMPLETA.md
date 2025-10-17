@@ -87,8 +87,8 @@ export CONFIG_SERVER_URL="http://localhost:8888"
 ### 1️⃣ **Clonar y Configurar el Repositorio**
 ```bash
 # 📥 Clonar el proyecto
-git clone https://github.com/kokedevops/arkavalenzuela.git
-cd arkavalenzuela
+git clone https://github.com/kokedevops/arka.git
+cd arka
 
 # 🔍 Verificar estructura del proyecto
 # Windows

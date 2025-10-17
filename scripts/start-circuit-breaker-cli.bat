@@ -17,7 +17,7 @@ echo • CLI Enabled: %ARKA_CLI_ENABLED%
 echo.
 
 REM Navegar al directorio del proyecto
-cd /d "c:\Users\valen\arka\arkavalenzuela-1"
+cd /d "c:\Users\valen\arka\arka-1"
 
 echo Ejecutando aplicación con CLI habilitada...
 echo.

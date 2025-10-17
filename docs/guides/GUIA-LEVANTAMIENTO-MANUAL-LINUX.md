@@ -133,7 +133,7 @@ echo "Redis: $(redis-cli ping 2>/dev/null && echo '✅ OK' || echo '❌ FAIL')"
 
 ```bash
 # Ir al directorio del proyecto
-cd ~/arkavalenzuela-2
+cd ~/arka-2
 
 # Compilar Eureka Server
 echo "🔨 Compilando Eureka Server..."

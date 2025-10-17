@@ -286,7 +286,7 @@ docker-compose down
 
 - **Proyecto:** ARKA VALENZUELA E-commerce Microservices
 - **Tecnologías:** Java 21, Spring Boot 3.2.3, Spring Cloud
-- **Repositorio:** https://github.com/kokedevops/arkavalenzuela
+- **Repositorio:** https://github.com/kokedevops/arka
 - **Rama:** proyecto-final
 
 ---

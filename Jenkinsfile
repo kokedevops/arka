@@ -11,8 +11,8 @@ pipeline {
         stage('Checkout') {
             steps {
                 sh '''
-                    rm -rf arkavalenzuela arkavalenzuela@tmp ${LOG_DIR} ${PID_DIR} ${STARTER}
-                    git clone https://github.com/kokedevops/arkavalenzuela.git -b proyecto-entrega arkavalenzuela
+                    rm -rf arka arka@tmp ${LOG_DIR} ${PID_DIR} ${STARTER}
+                    git clone https://github.com/kokedevops/arka.git -b proyecto-entrega arka
                     mkdir -p ${LOG_DIR} ${PID_DIR}
 
                     # Crear script auxiliar para lanzar servicios
@@ -42,7 +42,7 @@ EOF
 
         stage('Arrancar base (Config Server → Eureka)') {
             steps {
-                dir('arkavalenzuela') {
+                dir('arka') {
                     sh '''
                         ${STARTER} config-server :config-server:bootRun "--spring.profiles.active=aws" || true
                         ${STARTER} eureka-server :eureka-server:bootRun "--spring.profiles.active=aws" || true
@@ -53,7 +53,7 @@ EOF
 
         stage('Arrancar apps') {
             steps {
-                dir('arkavalenzuela') {
+                dir('arka') {
                     script {
                         parallel(
                             "API Gateway": {

@@ -33,7 +33,7 @@ if ! docker-compose ps | grep -q "Up"; then
     echo "ℹ️  No hay servicios corriendo con Docker Compose"
     
     # Check for orphan containers
-    orphans=$(docker ps -a --filter "label=com.docker.compose.project=arkavalenzuela-1" --format "{{.Names}}")
+    orphans=$(docker ps -a --filter "label=com.docker.compose.project=arka-1" --format "{{.Names}}")
     if [[ -n "$orphans" ]]; then
         echo ""
         echo "🔍 Contenedores huérfanos encontrados:"
@@ -93,7 +93,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "🗑️  Eliminando imágenes ARKA..."
     
     # Remove ARKA images
-    arka_images=$(docker images --filter "reference=*arka*" --filter "reference=*arkavalenzuela*" -q)
+    arka_images=$(docker images --filter "reference=*arka*" --filter "reference=*arka*" -q)
     if [[ -n "$arka_images" ]]; then
         docker rmi $arka_images 2>/dev/null || true
         echo "✅ Imágenes ARKA eliminadas"
@@ -105,7 +105,7 @@ fi
 # Check for leftover containers
 echo ""
 echo "🔍 Verificando contenedores restantes..."
-remaining=$(docker ps -a --filter "label=com.docker.compose.project=arkavalenzuela-1" --format "{{.Names}}")
+remaining=$(docker ps -a --filter "label=com.docker.compose.project=arka-1" --format "{{.Names}}")
 if [[ -n "$remaining" ]]; then
     echo "⚠️  Contenedores restantes encontrados:"
     echo "$remaining"
@@ -114,7 +114,7 @@ if [[ -n "$remaining" ]]; then
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo "⚡ Forzando eliminación..."
-        docker ps -a --filter "label=com.docker.compose.project=arkavalenzuela-1" -q | xargs docker rm -f 2>/dev/null || true
+        docker ps -a --filter "label=com.docker.compose.project=arka-1" -q | xargs docker rm -f 2>/dev/null || true
         echo "✅ Contenedores restantes eliminados"
     fi
 else

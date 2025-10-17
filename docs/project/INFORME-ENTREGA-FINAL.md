@@ -198,7 +198,7 @@ El proyecto demuestra la implementación completa de todos los requisitos solici
 ## 🏗️ ESTRUCTURA DEL PROYECTO
 
 ```
-arkavalenzuela-2/
+arka-2/
 ├── 📋 INFORME-ENTREGA-FINAL.md          ← ESTE ARCHIVO
 ├── 🏗️ ARQUITECTURA-HEXAGONAL-DIAGRAMAS.md
 ├── 📁 ESTRUCTURA-CARPETAS-EXPLICACION.md

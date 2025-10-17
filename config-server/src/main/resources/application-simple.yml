@@ -17,4 +17,4 @@ spring:
 logging:
   level:
     org.springframework.cloud.config: INFO
-    com.arkavalenzuela: DEBUG
+    com.arka: DEBUG
